@@ -4,10 +4,9 @@
 #	testing HTML::HiLiter
 #
 
-print "1..1\n";
-
+use Test::Simple tests => 1;
 use HTML::HiLiter;
-$HTML::HiLiter::debug=1;
+
 
 my $file = 't/test.html';
 
@@ -23,16 +22,11 @@ my @q = ('foo = "quick brown" and bar=(fox* or run)',
 my $hiliter = new HTML::HiLiter(
 				Links=>1,
 				Print=>0,
+				#debug=>1
 				);
 
 $hiliter->Queries(\@q, [ qw(foo bar) ]);
 $hiliter->CSS;
 
-my $highlighted = $hiliter->Run($file);
-
-print STDOUT "ok\n" if $highlighted;
-
-warn $highlighted;	# so user can see
-
-warn $hiliter->Report;
+ok( $hiliter->Run($file) );
 

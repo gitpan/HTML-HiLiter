@@ -4,10 +4,9 @@
 #	testing HTML::HiLiter
 #
 
-print "1..1\n";
-
+use Test::Simple tests => 1;
 use HTML::HiLiter;
-#$HTML::HiLiter::debug=1;
+
 
 my $file = 't/test.html';
 
@@ -20,7 +19,7 @@ my @q = ('foo = "quick brown" and bar=(fox* or run)',
 	 'fakefox'
 	);
 
-select(STDERR);
+#select(STDERR);
 my $hiliter = new HTML::HiLiter(
 				Links=>1
 				);
@@ -28,8 +27,4 @@ my $hiliter = new HTML::HiLiter(
 $hiliter->Queries(\@q, [ qw(foo bar) ]);
 $hiliter->CSS;
 
-print STDOUT "ok\n" if $hiliter->Run($file);
-select(STDOUT);
-
-warn $hiliter->Report;
-
+ok( $hiliter->Run( $file ) );

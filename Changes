@@ -50,3 +50,30 @@ Revision history for Perl extension HiLiter.
                added StopWords note to prep_queries()
                fixed regexp that caused make test to fail in perl < 5.8.1 (thanks to m@perlmeister.com)
                added note to hilite() perldoc to always use Inline()
+
+ * 0.11
+ 	separated debugging into 3 levels for increasing verbosity (1-3).
+	changed default colors to lighter pastels.
+	misc perldoc fixes.
+	internal object key 'query_array' preserves query order.
+	fixed default HTML::Parser handler to buffer/print according to HiLiter object param.
+	added support for TextFilter and TagFilter.
+	renamed $debug to $Debug.
+	added 'debug' param in new() call.
+	fixed bugs with default StartBound and EndBound.
+	fixed bugs with &#NN; numeric entities in $White_Space.
+	added support to let phrases match over all non-WordChars, not just whitespace.
+	Queries() now returns either hash ref or array depending on context.
+	Queries() may now take either an array ref or a scalar text string.
+	Various small tweeks to better support the SWISHE param.
+	Queries() now keeps query array in same order as original.
+	moved all Changes here and out of .pm file
+	moved examples to their own directory and out of POD
+	renamed all private routines to start with _
+	added the 'nohiliter' attribute option, to prevent highlighting within marked tagsets
+	general cleanup and optimization
+	build_regexp() now returns an array ref of two regexp: for HTML and plain text.
+	build_regexp() now uses Ignore Chars from SWISH::API object
+	prep_queries() now supports SWISH Fuzzy Mode via SWISH::API::Fuzzy (version 0.03 or newer)
+	changed new() SWISHE param to SWISH -- but either will work
+	

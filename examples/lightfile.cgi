@@ -1,35 +1,52 @@
-HTML::HiLiter
-====================
+#!/usr/bin/perl -T
+#
+# usage: lighfile.cgi?f='somefile_or_url';q='some words to highlight'
 
-HTML::HiLiter is intended for use with the CrayDoc product,
-version 4 and later. It may also be used with any kind of HTML
-highlighting you wish. SWISH::API users may find it most useful.
+use CGI qw(:standard);
+use CGI::Carp qw(fatalsToBrowser);
 
-Check out SWISH::HiLiter as well.
+print header();
 
-INSTALLATION
+my $f = param('f');
+my (@q) = param('q');
 
-To install this module type the following:
+use HTML::HiLiter;
 
-   perl Makefile.PL
-   make
-   make test
-   make install
+my $hl = new HTML::HiLiter;
 
-DEPENDENCIES
+$hl->Queries([ @q ]);
 
-This module requires these other modules and libraries:
+$hl->CSS;
 
-       HTML::Parser
-       HTML::Entities
-       HTML::Tagset
-       HTTP::Request (only if fetching HTML via http)
-       LWP::UserAgent (only if fetching HTML via http)
+$hl->Run($f);
 
-COPYRIGHT AND LICENCE
+print "<p><pre>". $hl->Report . "</pre></p>";
 
-Copyright (C) 2004 Cray Inc 
-	
+1;
+
+__END__
+
+=pod
+
+=head1 NAME
+
+lightfile.cgi -- highlight a file with HTML::HiLiter via the HTTP method.
+
+=head1 DESCRIPTION
+
+Place in your cgi-bin and set permissions appropriately. Takes two parameters:
+f (for file to fetch and highlight) and q (for query to highlight).
+
+=head1 CAUTION
+
+This script makes no attempt at untainting variables or similar security precautions.
+It's simply an example.
+
+USE AT YOUR OWN RISK!
+
+=cut
+
+
  ###############################################################################
  #    CrayDoc 4
  #    Copyright (C) 2004 Cray Inc swpubs@cray.com
@@ -48,7 +65,4 @@ Copyright (C) 2004 Cray Inc
  #    along with this program; if not, write to the Free Software
  #    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  ###############################################################################
-
-
-# Send email to swpubs@cray.com.
-
+ 
