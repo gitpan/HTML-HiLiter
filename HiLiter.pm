@@ -5,13 +5,6 @@ use strict;
 use sigtrap qw(die normal-signals error-signals);
 require Exporter;
 
-require HTML::Parser;
-require HTML::Tagset;
-# HTML::Tagset::isHeadElement doesn't define these,
-# so we add them here
-$HTML::Tagset::isHeadElement{'head'}++;
-$HTML::Tagset::isHeadElement{'html'}++;
-
 # debug_time() is part of the Pubs::Times module
 # and can be used for benchmarking
 
@@ -21,7 +14,7 @@ use vars qw(@ISA @EXPORT $VERSION);
 
 @EXPORT = qw( );
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 =pod
 
@@ -34,7 +27,7 @@ HTML::HiLiter - highlight words in an HTML document just like a felt-tip HiLiter
 
 HTML::HiLiter is designed to make highlighting search queries
 in HTML easy and accurate. HTML::HiLiter was designed for CrayDoc 4, the
-Cray Inc documentation server. It has been written with SWISH::API users in mind, 
+Cray documentation server. It has been written with SWISH::API users in mind, 
 but can be used within any Perl program.
 
 Unlike other highlighting code I've found, this one supports nested tags and
@@ -75,7 +68,7 @@ Requires the following modules:
 =over
 
 =item
-HTML::Parser
+HTML::Parser (but optional with parser=>0 -- see new() )
 
 =item
 HTML::Entities
@@ -162,6 +155,83 @@ $CC = "\n-->\n";
 # IMPORTANT: in perl 5.8 and later, HTML::Entities will encode with unicode
 # which is not useful for most web display.
 my $ISO_ext = 'ªµºÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ';
+
+######################################################################################
+# http://www.pemberley.com/janeinfo/latin1.html
+# The CP1252 characters that are not part of ANSI/ISO 8859-1, and that should therefore
+# always be encoded as Unicode characters greater than 255, are the following:
+
+# Windows   Unicode    Char.
+#  char.   HTML code   test         Description of Character
+#  -----     -----     ---          ------------------------
+#ALT-0130   &#8218;   â    Single Low-9 Quotation Mark
+#ALT-0131   &#402;    Ä    Latin Small Letter F With Hook
+#ALT-0132   &#8222;   ã    Double Low-9 Quotation Mark
+#ALT-0133   &#8230;   É    Horizontal Ellipsis
+#ALT-0134   &#8224;        Dagger
+#ALT-0135   &#8225;   à    Double Dagger
+#ALT-0136   &#710;    ö    Modifier Letter Circumflex Accent
+#ALT-0137   &#8240;   ä    Per Mille Sign
+#ALT-0138   &#352;    ?    Latin Capital Letter S With Caron
+#ALT-0139   &#8249;   Ü    Single Left-Pointing Angle Quotation Mark
+#ALT-0140   &#338;    Î    Latin Capital Ligature OE
+#ALT-0145   &#8216;   Ô    Left Single Quotation Mark
+#ALT-0146   &#8217;   Õ    Right Single Quotation Mark
+#ALT-0147   &#8220;   Ò    Left Double Quotation Mark
+#ALT-0148   &#8221;   Ó    Right Double Quotation Mark
+#ALT-0149   &#8226;   ¥    Bullet
+#ALT-0150   &#8211;   Ð    En Dash
+#ALT-0151   &#8212;   Ñ    Em Dash
+#ALT-0152   &#732;    ÷    Small Tilde
+#ALT-0153   &#8482;   ª    Trade Mark Sign
+#ALT-0154   &#353;    ?    Latin Small Letter S With Caron
+#ALT-0155   &#8250;   Ý    Single Right-Pointing Angle Quotation Mark
+#ALT-0156   &#339;    Ï    Latin Small Ligature OE
+#ALT-0159   &#376;    Ù    Latin Capital Letter Y With Diaeresis
+#
+#######################################################################################
+
+# NOTE that all the Char tests will likely fail above unless your terminal/editor
+# supports Unicode
+
+# browsers should support these numbers, and in order for perl < 5.8 to work correctly,
+# we add the most common if missing
+
+my $unicodes = {
+		8218	=> "'",
+		402	=> 'f',
+		8222	=> '"',
+		8230	=> '...',
+		8224	=> 't',
+		8225	=> 't',
+		8216	=> "'",
+		8217	=> "'",
+		8220	=> '"',
+		8221	=> '"',
+		8226	=> '*',
+		8211	=> '-',
+		8212	=> '-',
+		732	=> '~',
+		8482	=> '(TM)',
+		376	=> 'Y',
+		352	=> 'S',
+		353	=> 's',
+		8250	=> '>',
+		8249	=> '<',
+		710	=> '^',
+		338	=> 'OE',
+		339	=> 'oe',
+	};
+	my %codeunis = ();
+	for (keys %$unicodes) {
+	# quotemeta required since build_regexp will look for the \
+		my $ascii = quotemeta($unicodes->{$_});
+		next if length $ascii > 2;
+		#warn "pushing $_ into $ascii\n";
+		push(@{ $codeunis{$ascii} }, $_);
+	}
+	
+################################################################################
 
 # SWISH-E users:
 # WordChars should be WordCharacters class
@@ -316,8 +386,16 @@ sub _init
 	$self->{Force}	||= undef;	# wrap Inline HTML with <p> tagset
 					# to force HTML interpolation
 						
-	
-						
+	# load the parser unless explicitly asked not to
+	# i.e., we might be using methods without parsing HTML
+	unless( defined($self->{parser}) and ! $self->{parser} ) {
+		require HTML::Parser;
+		require HTML::Tagset;
+		# HTML::Tagset::isHeadElement doesn't define these,
+		# so we add them here
+		$HTML::Tagset::isHeadElement{'head'}++;
+		$HTML::Tagset::isHeadElement{'html'}++;
+	}			
 						
 =pod
 
@@ -412,6 +490,11 @@ force the highlighting of plain text. Use this only with Inline().
 For SWISH::API compatibility. See the SWISH::API documentation and the
 EXAMPLES section later in this document.
 
+=item parser
+
+If set to 0 (FALSE), then the HTML::Parser module will not be loaded. This allows
+you to use the regexp methods without the overhead of loading the parser. The default
+is to load the parser.
 
 =back
 
@@ -515,7 +598,7 @@ sub mytag
 			
 		} else {
 		
-			print $self->{HiLiter}->hi_lite( $buffer, $hrefs );
+			print $self->{HiLiter}->hilite( $buffer, $hrefs );
 			
 		}
 		
@@ -627,7 +710,7 @@ sub Queries
 
 =pod
 
-=head2 Queries
+=head2 Queries( \@queries, [ \@metanames ] )
 
 Parse the queries you want to highlight, and create
 the corresponding regular expressions in the object.
@@ -635,9 +718,13 @@ This method must be called prior to Run(), but need
 only be done once for a set of queries. You may Run()
 multiple times with only one Queries() setup.
 
-Queries() takes a single parameter: a reference to an array
+Queries() requires a single parameter: a reference to an array
 of words or phrases. Phrases should be delimited with
 a double quotation mark (or as redefined in $HTML::HiLiter::Delim ).
+
+If using SWISH-E, Queries() takes a second parameter: a reference
+to an array of a metanames. If the metanames are used as part of the query,
+they will be removed from the regexp used for highlighting.
 
 =cut
 
@@ -705,7 +792,7 @@ sub Run
 
 =pod
 
-=head2 Run
+=head2 Run( file_or_url )
 
 Run() takes either a file name, a URL (indicated by a leading 'http://'),
 or a scalar reference to a string of HTML text.
@@ -782,9 +869,27 @@ or a scalar reference to a string of HTML text.
 }
 
 
-sub hi_lite
+sub hilite
 {
 	
+=pod
+
+=head2 hilite( html, links )
+
+Usually accessed via Run() but documented here in case you want to run without
+the HTML::Parser. Returns the text, highlighted. Note that either CSS() or Inline()
+must be run prior to calling this method, so that the object has the styles defined.
+See EXAMPLES.
+
+NOTE: that the second param 'links' only works if using the HTML::Parser and you have
+set the Links param in the new() method.
+
+Example:
+
+	my $hilited_text = $hiliter->hilite('some text');
+	
+=cut
+
 	my $self = shift;
 	my $html = shift || return '';	# no html to highlight
 	my $links = shift || [];	# href values for Links option
@@ -817,23 +922,27 @@ sub hi_lite
 
 	my $tagless = '';
 	
-	my $plainascii = new HTML::Parser(
+	# wrap in an eval{} in case HTML::Parser isn't loaded
+	eval {
+		my $plainascii = new HTML::Parser(
 			unbroken_text => 1,
 			api_version => 3,
 		  	text_h => [ sub { $tagless .= shift }, "dtext" ],
 		  	#marked_sections => 1,
 		)->parse( $html );
 		
-	$plainascii->eof;	# resets parser
-	
-	$tagless =~ s,&#821[12];,-,g;	# common Cray DocBook entity
-					# is Unicode and needs special translation
-					# since it gets filtered on indexing
-	
-	
+		$plainascii->eof;	# resets parser
+		
+	};
+
 	$tagless ||= $html;	# sometimes it's just a single &nbsp; or something
 				# and we end up with ' '.
-				
+	
+	for my $num (keys %$unicodes) {
+		$tagless =~ s,&#$num;,$unicodes->{$num},g;
+		# some special Unicode entities
+		# that get special ascii equivs for DocBook source
+	}	
 	
 	print $OC . "TAGLESS: $tagless :TAGLESS" , $CC if $debug == 1;
 		
@@ -926,7 +1035,7 @@ sub hi_lite
 		   }
 		}
 		
-		$self->{Report}->{$q}->{Instances} += scalar(@{ $q2real->{$q} });
+		$self->{Report}->{$q}->{Instances} += scalar(@{ $q2real->{$q} || [] });
 		
 	}
 	
@@ -1046,47 +1155,6 @@ sub all_char_entities
 	require HTML::Entities;	# since they've already defined all the char entities for us
 	my $E = \%HTML::Entities::char2entity;
 
-##############################################################################################
-# http://www.pemberley.com/janeinfo/latin1.html
-# The CP1252 characters that are not part of ANSI/ISO 8859-1, and that should therefore always
-# be encoded as Unicode characters greater than 255, are the following:
-
-# Windows   Unicode    Char.
-#  char.   HTML code   test         Description of Character
-#  -----     -----     ---          ------------------------
-#ALT-0130   &#8218;   â    Single Low-9 Quotation Mark
-#ALT-0131   &#402;    Ä    Latin Small Letter F With Hook
-#ALT-0132   &#8222;   ã    Double Low-9 Quotation Mark
-#ALT-0133   &#8230;   É    Horizontal Ellipsis
-#ALT-0134   &#8224;        Dagger
-#ALT-0135   &#8225;   à    Double Dagger
-#ALT-0136   &#710;    ö    Modifier Letter Circumflex Accent
-#ALT-0137   &#8240;   ä    Per Mille Sign
-#ALT-0138   &#352;    ?    Latin Capital Letter S With Caron
-#ALT-0139   &#8249;   Ü    Single Left-Pointing Angle Quotation Mark
-#ALT-0140   &#338;    Î    Latin Capital Ligature OE
-#ALT-0145   &#8216;   Ô    Left Single Quotation Mark
-#ALT-0146   &#8217;   Õ    Right Single Quotation Mark
-#ALT-0147   &#8220;   Ò    Left Double Quotation Mark
-#ALT-0148   &#8221;   Ó    Right Double Quotation Mark
-#ALT-0149   &#8226;   ¥    Bullet
-#ALT-0150   &#8211;   Ð    En Dash
-#ALT-0151   &#8212;   Ñ    Em Dash
-#ALT-0152   &#732;    ÷    Small Tilde
-#ALT-0153   &#8482;   ª    Trade Mark Sign
-#ALT-0154   &#353;    ?    Latin Small Letter S With Caron
-#ALT-0155   &#8250;   Ý    Single Right-Pointing Angle Quotation Mark
-#ALT-0156   &#339;    Ï    Latin Small Ligature OE
-#ALT-0159   &#376;    Ù    Latin Capital Letter Y With Diaeresis
-#
-##############################################################################################
-
-# NOTE that all the Char tests will likely fail above unless your terminal/editor
-# supports Unicode
-
-# browsers should support these numbers, and in order for perl < 5.8 to work correctly,
-# we add the most common if missing
-
 # define any custom entities here with $E
 
 	return $E;
@@ -1173,8 +1241,21 @@ sub count_instances
 
 sub build_regexp
 {
-# GOAL: leverage the speed of Perl's regexp engine against the complication
-# of a regexp that matches inline tags, entities, and combinations of both
+
+=pod
+
+=head2 build_regexp( words_to_highlight )
+
+Returns the regular expression for a string of word(s). Usually called by Queries()
+but you might use directly if you are running
+without the HTML::Parser.
+
+	my $pattern = $hiliter->build_regexp( 'foo or bar' );
+	
+This is the heart of the HiLiter. We keverage the speed of Perl's regexp engine 
+against the complication of a regexp that matches inline tags, entities, and combinations of both.
+
+=cut
 
 	my ($self,$match) = @_;
 	my $wild = $self->{EndCharacters};
@@ -1203,9 +1284,10 @@ sub build_regexp
 		if ($c eq '\ ') {
 			$c = "(?-xsm:$White_Space)+" . $tag_regexp . '*';
 			next CHAR;
-		} elsif ($c eq '\-') {
-		# special case for dashes per Cray DocBook
-			$c = "$c|&#8211;|&#8212;";
+		} elsif (exists $codeunis{$c} ) {
+			#warn "matched $c in codeunis\n";
+			my @e = @{ $codeunis{$c} };
+			$c = join('|', $c, grep { $_ = "&#$_;" } @e );
 		}
 		
 		my $aka = $ent eq "&#$num;" ? $ent : "$ent|&#$num;";
@@ -1362,22 +1444,33 @@ sub urlify_ascii
 sub prep_queries
 {
 
+=pod
+
+=head2 prep_queries( \@queries, \@metanames, \@stopwords
+
+Parse a list of query strings and return them as individual word/phrase tokens.
+Removes stopwords and metanames from queries.
+
+	my @q = $hiliter->prep_queries( ['foo', 'bar', 'baz'] );
+	
+Use in combination with SWISH->ParsedWords() since that function
+will return the actual words used in search, parsed in an array. See the EXAMPLES.
+	
+The reason we support multiple @query instead of $query is to allow for compounded searches.
+
+Don't worry about 'not's since those aren't going to be in the
+results anyway. Just let the highlight fail.
+
+=cut
+
 	require Text::ParseWords;
 
 	my $self = shift;
 	my @query = @{ shift(@_) };
 	my $metanames = shift || [];
 	my $stopwords = shift || $self->{StopWords} || [];
-	#my $word_char = $self->{WordCharacters} || $WordChar;
-	
-	# use in combination with SWISH->ParsedWords() since that function
-	# will return the actual words used in search, parsed in an array
-	
-	# the reason we support multiple @query instead of $query
-	# is to allow for compounded searches.
-	
-	# don't worry about 'not's since those aren't going to be in the
-	# results anyway. we'll just let the highlight fail.
+	$stopwords = [ split(/\s+/, $stopwords) ] if ! ref $stopwords;
+
 	
 	my (%words,%uniq);
 	
@@ -1569,13 +1662,23 @@ A very simple example for highlighting a document from the filesystem.
 
 =head2 SWISH::API
 
-An example for SWISH-E users (SWISH-E 2.4 and later).
+An example for SWISH::API users (SWISH-E 2.4 and later).
 
 	#!/usr/bin/perl
 
 	# highlight swishdescription text in search results.
-	# use from command line or something similar from 
-	# a CGI script
+	# use as CGI script.
+	# NOTE this is not a pretty output -- dress it up as you will
+	
+	# usage: script.cgi?q=foo
+	
+	use CGI;
+	my $cgi = new CGI;
+	$| = 1;
+	
+	print $cgi->header;
+	
+	print "<pre>";
 	
 	use SWISH::API;
 	
@@ -1590,7 +1693,8 @@ An example for SWISH-E users (SWISH-E 2.4 and later).
 	my $hiliter = new HTML::HiLiter(
 				Force => 1,  # because swishdescription
 					     # is not stored as HTML
-				SWISHE => $swish
+				SWISHE => $swish,
+				parser=> 0,  # don't load HTML::Parser
 				);
 	
 
@@ -1600,7 +1704,7 @@ An example for SWISH-E users (SWISH-E 2.4 and later).
 
         my $search = $swish->New_Search_Object;
 
-	my @query = @ARGV;
+	my @query = $cgi->param('q');
 	
 	@query || die "$0 'words to query'\n";
 
@@ -1617,8 +1721,9 @@ An example for SWISH-E users (SWISH-E 2.4 and later).
 
         print "Found ", $results->Hits, " hits\n";
 
+	my $query_str = join(' ', $results->ParsedWords( $index ) );
 	$hiliter->Queries(
-			[ join(' ', $results->ParsedWords( $index ) ) ],
+			[ $query_str ],
 			[ @metanames ]
 			);
 	$hiliter->Inline;
@@ -1648,7 +1753,7 @@ An example for SWISH-E users (SWISH-E 2.4 and later).
 
 	  my $snippet = get_snippet ( $result->Property( "swishdescription" ) );
 	
-	  $hiliter->Run(\$snippet);
+	  print $hiliter->hilite( $snippet );
 	  
 	  # warn $hiliter->Report if $hiliter->Report;
 	  # comment in for some debugging.
@@ -1658,6 +1763,8 @@ An example for SWISH-E users (SWISH-E 2.4 and later).
 	}
 	
 	print "\n";
+	
+	print "</pre>";
 	
 	sub get_snippet
 	{
@@ -1697,6 +1804,7 @@ An example for SWISH-E users (SWISH-E 2.4 and later).
 		return $snippet;
 		
 	}
+
 
 
 =head2 A simple CGI script.
@@ -1808,11 +1916,6 @@ Better approach to stopwords in prep_queries().
 
 =item *
 
-When using the get_url() routine, check for framesets with relative
-objects, so we can get those too. Or are we trying too much??
-
-=item *
-
 Highlight IMG tags where ALT attribute matches query??
 
 =item *
@@ -1837,7 +1940,16 @@ as well.
 	tweeked StartBound and EndBound to not match within a word
 	fixed doc to reflect that debugging prints on STDOUT, not STDERR
 
-
+ * 0.07
+	made HTML::Parser optional to allow for more flexibility with using methods
+	added perldoc for previously undocumented methods
+	corrected perldoc for Queries() to refer to metanames as second param
+	updated SWISH::API example to avoid using HTML::Parser
+	added unicode entity -> ascii equivs for better DocBook support
+		(NOTE: this expands the ndash/mdash feature from 0.06)
+	misc cleanup
+	
+	
 =head1 KNOWN BUGS
 
 Report() may be inaccurate when Links flag is on. Report() may be inaccurate
@@ -1845,6 +1957,10 @@ if the moon is full. Report() may just be inaccurate, plain and simple. Improvem
 welcome.
 
 HiLiter will not highlight literal parentheses ().
+
+Phrases that contain stopwords may not highlight correctly. It's more a problem of *which*
+stopword the original doc used and is not an intrinsic problem with the HiLiter, but
+noted here for completeness' sake.
 
 
 =head1 AUTHOR

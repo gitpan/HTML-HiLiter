@@ -9,3 +9,18 @@ Revision history for Perl extension HiLiter.
 0.05 Fri Jul  9 12:48:34 CDT 2004
 	- public release via CPAN
 
+* 0.06
+               use Text::ParseWords instead of original clumsy regexps in prep_queries()
+               add support for 8211 (ndash) and 8212 (mdash) entities
+               tweeked StartBound and EndBound to not match within a word
+               fixed doc to reflect that debugging prints on STDOUT, not STDERR
+
+* 0.07
+               made HTML::Parser optional to allow for more flexibility with using methods
+               added perldoc for previously undocumented methods
+               corrected perldoc for Queries() to refer to metanames as second param
+               updated SWISH::API example to avoid using HTML::Parser
+               added unicode entity -> ascii equivs for better DocBook support
+                       (NOTE: this expands the ndash/mdash feature from 0.06)
+               misc cleanup
+
