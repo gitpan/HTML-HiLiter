@@ -6,4 +6,5 @@ README
 t/1.t
 t/test.html
 t/test.t
+t/test2.t
 META.yml                                Module meta-data (added by MakeMaker)

@@ -31,4 +31,15 @@ Revision history for Perl extension HiLiter.
                  (HTML::Entities does a 'require HTML::Parser' which made the parser=>0
                  feature break.)
 
+* 0.09
+               added Print feature to new() to allow Run() to return highlighted text instead
+                 of automatically printing in a streaming fashion. Set Print=>0 to turn off print().
+               Run() now returns highlighted text if Print=>0.
+               changed parser=>0 to Parser=>0.
+               the ParsedWords bug reported in 0.08 was really with my example in get_snippet().
+                 so rather than blame someone else's code, I fixed mine... :)
+               fixed bug with count of real HTML matches that was most evident with running hilite()
+               added test2.t test to test the Parser=>0 feature
+
+
 

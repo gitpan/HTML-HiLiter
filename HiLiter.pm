@@ -14,7 +14,7 @@ use vars qw(@ISA @EXPORT $VERSION);
 
 @EXPORT = qw( );
 
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 =pod
 
@@ -30,13 +30,22 @@ in HTML easy and accurate. HTML::HiLiter was designed for CrayDoc 4, the
 Cray documentation server. It has been written with SWISH::API users in mind, 
 but can be used within any Perl program.
 
+=head2 Should you use this module?
+
+I would suggest 
+B<not> using HTML::HiLiter if your HTML is fairly simple, since in 
+HTML::HiLiter, speed has been sacrificed for accuracy. Check out HTML::Highlighter
+instead.
+
 Unlike other highlighting code I've found, this one supports nested tags and
 character entities, such as might be found in technical documentation or HTML
-generated from some other source (like DocBook SGML or XML). I would suggest 
-B<not> using HTML::HiLiter if your HTML is fairly simple, since in 
-HTML::HiLiter, speed has been sacrificed for accuracy. Or, you might try using
-the parser=>0 feature, which should speed up the run time but doesn't support
-all the features.
+generated from some other source (like DocBook SGML or XML). 
+
+You might try using the Parser=>0 feature, which should speed up the 
+run time but doesn't support
+all the features (like Links, TagFilter, TextFilter, smart context, etc.). Parser=>0
+has the advantage of not requiring the HTML::Parser (and associated modules), but
+it makes the highlighting rather 'blind'.
 
 The goal is server-side highlighting that looks as if you used a felt-tip marker
 on the HTML page. You shouldn't need to know what the underlying tags and entities and
@@ -70,13 +79,13 @@ Requires the following modules:
 =over
 
 =item
-HTML::Parser (but optional with parser=>0 -- see new() )
+HTML::Parser (but optional with Parser=>0 -- see new() )
 
 =item
-HTML::Entities
+HTML::Entities (but optional with Parser=>0 -- see new() )
 
 =item
-HTML::Tagset
+HTML::Tagset (but optional with Parser=>0 -- see new() )
 
 =item
 Text::ParseWords
@@ -96,24 +105,26 @@ LWP::UserAgent (only if fetching HTML via http)
 
 =item *
 
-HTML::HiLiter prints highlighted HTML chunk by chunk, buffering all text
+With HTML::Parser enabled (default), HTML::HiLiter evals highlighted HTML 
+chunk by chunk, buffering all text
 within an HTML block element before evaluating the buffer for highlighting.
-If no matches to the queries are found, the HTML is immediately printed.
-Otherwise, the HTML is highlighted and then printed. The buffer is flushed
-after each print.
+If no matches to the queries are found, the HTML is immediately printed (default)
+or cached and returned at the end of all evaluation.
+Otherwise, the HTML is highlighted and then printed (or cached). The buffer is flushed
+after each print/cache.
 
 You can direct the print() to a FILEHANDLE with the standard select() function
-in your script.
+in your script. Or use Print=>0 to return the highlighted HTML as a scalar string.
 
 =item *
 
-Ample debugging. Set the $HTML::HiLiter::debug variable to something true,
+Ample debugging. Set the $HTML::HiLiter::debug variable to 1,
 and lots of debugging info will be printed within HTML comments <!-- -->.
 
 =item *
 
 Will highlight link text (the stuff within an <a href> tagset) if the HREF 
-value is a valid match.
+value is a valid match. See the Links option.
 
 =item *
 
@@ -487,7 +498,7 @@ sub _init
 	for (qw(WordCharacters EndCharacters BeginCharacters))  {
 		$self->{$_} =~ s,[<>&],,g;
 		# escape the - since it is special in a [] class
-		$self->{$_} =~ s,[^\\]-,\\-,g;
+		$self->{$_} =~ s/\-/\\-/g;
 	}
 	
 	
@@ -518,8 +529,8 @@ sub _init
 					# to force HTML interpolation
 						
 	# load the parser unless explicitly asked not to
-	# i.e., we might be using methods without parsing HTML
-	unless ( defined($self->{parser}) && $self->{parser} == 0) {
+	unless ( defined($self->{Parser}) && $self->{Parser} == 0) {
+		$self->{Parser}++;
 		require HTML::Parser;
 		require HTML::Tagset;
 		# HTML::Tagset::isHeadElement doesn't define these,
@@ -527,6 +538,11 @@ sub _init
 		$HTML::Tagset::isHeadElement{'head'}++;
 		$HTML::Tagset::isHeadElement{'html'}++;
 	}
+	
+	unless ( defined($self->{Print}) && $self->{Print} == 0) {
+		$self->{Print} = 1;
+	}
+	
 						
 =pod
 
@@ -590,8 +606,8 @@ A reference to an array of HTML colors. Default is:
 
 =item Links
 
-A boolean (1 or 0). If set to '1', consider <a href="foo"> a valid match for 
-'foo' and hilite the visible text within the <a> tagset.
+A boolean (1 or 0). If set to '1', consider <a href="foo">my link</a> a valid match for 
+'foo' and highlight the visible text within the <a> tagset ('my link').
 Default Links flag is '0'.
 
 =item TagFilter
@@ -610,6 +626,14 @@ characters. Make this higher at your peril. Most HTML will not exceed more than
 100,000 characters in a <p> tagset, for example. (At least, most legible HTML will
 not...)
 
+=item Print
+
+Print highlighted HTML as the HTML::Parser encounters it.
+If TRUE (the default), use a select() in your script to print somewhere besides the
+perl default of STDOUT. 
+
+NOTE: set this to 0 (FALSE) only if you are highlighting small chunks of HTML
+(i.e., smaller than BufferLim). See Run().
 
 =item Force
 
@@ -621,7 +645,7 @@ force the highlighting of plain text. Use this only with Inline().
 For SWISH::API compatibility. See the SWISH::API documentation and the
 EXAMPLES section later in this document.
 
-=item parser
+=item Parser
 
 If set to 0 (FALSE), then the HTML::Parser module will not be loaded. This allows
 you to use the regexp methods without the overhead of loading the parser. The default
@@ -672,7 +696,6 @@ sub mytag
 	
 	# $tag has ! for declarations and / for endtags
 	# $tagname is just bare tagname
-	# $offset is 
 	
 	if ($debug == 3) {
 		print $OC;
@@ -711,6 +734,8 @@ sub mytag
 	}
 	
 	# otherwise, evaluate $buffer and then print and flush it
+	# if this is an opentag, then $buffer is likely NULL which is fine
+	
 	
 	else
 	{
@@ -725,11 +750,22 @@ sub mytag
 			length($buffer) > $self->{HiLiter}->{BufferLim})
 			{
 			
-			print $buffer;
+			if ($self->{HiLiter}->{Print}) {
+				print $buffer;
+			} else {
+				$self->{HiLiter}->{Buffer} .= $buffer;
+			}
 			
 		} else {
 		
-			print $self->{HiLiter}->hilite( $buffer, $hrefs );
+			my $hilited = $self->{HiLiter}->hilite( $buffer, $hrefs );
+			
+			if ($self->{HiLiter}->{Print}) {
+				print $hilited;
+			} else {
+				$self->{HiLiter}->{Buffer} .= $hilited;
+			}
+			
 			
 		}
 		
@@ -764,7 +800,11 @@ sub mytag
 		# do something here to create $reassemble
 		
 	$reassemble ||= $text;
-	print $reassemble;
+	if ($self->{HiLiter}->{Print}) {
+		print $reassemble;
+	} else {
+		$self->{HiLiter}->{Buffer} .= $reassemble;
+	}
 	
 	# if this is the opening <head> tag,
 	# add the <style> declarations for the hiliting
@@ -773,20 +813,40 @@ sub mytag
 	
 	if ( $tag eq 'head' )
 	{
-	
+	  if ($self->{HiLiter}->{Print}) {
 		print $self->{HiLiter}->{StyleHead}
 			if $self->{HiLiter}->{StyleHead};
-		
+	  } else {
+	  	$self->{HiLiter}->{Buffer} .= $self->{HiLiter}->{StyleHead}
+			if $self->{HiLiter}->{StyleHead};
+	  }
 	}
 	
 }
 
 sub mytext
 {
-	my ($dtext, $text, $offset, $length) = @_;
+# self is HTML::Parser object
+	my ($self, $dtext, $text, $offset, $length) = @_;
 	
-	print $text if ! $HiLiting;	# just print it
-	$buffer .= $text if $HiLiting;	# add to the buffer
+	unless ($HiLiting) {
+	
+		if ($self->{HiLiter}->{Print}) {
+		
+			print $text;
+			
+		} else {
+		
+			$self->{HiLiter}->{Buffer} .= $text;
+			
+		}
+		
+	} else {
+	
+		$buffer .= $text;
+		
+	}
+	
 	
 	if ($debug == 3) {
 		print 	$OC.
@@ -939,6 +999,14 @@ The HTML::Parser must be used with this method.
 	my $self = shift;
 	my $file_or_html = shift || die "no File or HTML in HiLiter object!\n";
 	
+	$self->{Buffer} = '';	# reset
+	
+	my $default_h = sub { print @_ };
+	
+	if (! $self->{Print}) {
+		$default_h = sub { $self->{Buffer} .= $_ for @_ };
+	}
+	
 	if ( -e $file_or_html )	# should handle files or filehandles
 	{
 	
@@ -965,10 +1033,10 @@ The HTML::Parser must be used with this method.
 	my $parser = new HTML::Parser(
 	  unbroken_text => 1,
 	  api_version => 3,
-	  text_h => [ \&mytext, 'dtext,text,offset,length' ],
+	  text_h => [ \&mytext, 'self,dtext,text,offset,length' ],
 	  start_h => [ \&mytag, 'self,tag,tagname,offset,length,offset_end,attr,text' ],
 	  end_h => [\&mytag, 'self,tag,tagname,offset,length,offset_end,undef,text' ],
-	  default_h => [ sub { print @_ }, 'text' ]
+	  default_h => [ $default_h, 'text' ]
 	);
 
 	# shove $self into the $parser object, so that the my...() subroutines
@@ -994,15 +1062,22 @@ The HTML::Parser must be used with this method.
 	{
 		return $! if ! $parser->parse($self->{HTML});
 	}
-	print "\n";	# does parser intentionlly chomp last line?
+	
+	unless ($self->{Print}) {
+	
+		$self->{Buffer} .= "\n";
+		
+	} else {
 
+		print "\n";	# does parser intentionlly chomp last line?
+	}
 
 	# reset in case caller is mixing HTML and File in a single object
 	delete $self->{HTML};
 	delete $self->{File};
 	$parser->eof;
 
-	return 1;
+	return $self->{Buffer} || 1;
 }
 
 
@@ -1018,8 +1093,9 @@ the HTML::Parser. Returns the text, highlighted. Note that either CSS() or Inlin
 must be run prior to calling this method, so that the object has the styles defined.
 See EXAMPLES.
 
-NOTE: that the second param 'links' only works if using the HTML::Parser and you have
-set the Links param in the new() method.
+NOTE: that the second param 'links' is an array ref and only works if using the 
+HTML::Parser and you have set the Links param in the new() method -- 
+in which case, use Run() instead.
 
 Example:
 
@@ -1030,6 +1106,8 @@ Example:
 	my $self = shift;
 	my $html = shift || return '';	# no html to highlight
 	my $links = shift || [];	# href values for Links option
+	
+	delete $self->{Report} if ! $self->{Parser}; #reset
 	
 	if ($debug == 1) {
 		print	$OC.
@@ -1084,7 +1162,7 @@ Example:
 	
 	print $OC . "TAGLESS: $tagless :TAGLESS" , $CC if $debug == 1;
 		
-	my $count;
+	my $count = {};
 	
 	my @all_queries = sort keys %{ $self->{Queries} };
 	
@@ -1129,7 +1207,7 @@ Example:
 		
 		R: for my $r (keys %$real) {
 		
-			print $OC . "REAL appears to be $r" , $CC if $debug == 1;
+			print $OC . "REAL appears to be $r ($real->{$r} instances)" , $CC if $debug == 1;
 			
 			push(@{ $q2real->{$q} }, $r ) while $real->{$r}--;
 			
@@ -1175,15 +1253,21 @@ Example:
 		
 		$self->{Report}->{$q}->{Instances} += scalar(@{ $q2real->{$q} || [] });
 		
+		print $OC . "before any hiliting, count for '$q' is $self->{Report}->{$q}->{Instances} " . $CC
+			if $debug == 1;
+		
 	}
 	
 	# 3. add the hiliting tags
 		
 	HILITE: for my $q (@instances) {
+
+	   my %uniq_reals = ();
+	   $uniq_reals{$_}++ for @{ $q2real->{$q} };
 	
-	   REAL: for my $real (@{ $q2real->{$q} }) {
+	   REAL: for my $real (keys %uniq_reals) {
 	   
-	   	print $OC . "'$q' matched:\n$real\n" . $CC if $debug == 1;
+	   	print $OC . "'$q' matched real:\n$real\n" . $CC if $debug == 1;
 		
 		$html = $self->add_hilite_tags($html,$q,$real,$count);
 		
@@ -1378,7 +1462,7 @@ without the HTML::Parser.
 
 	my $pattern = $hiliter->build_regexp( 'foo or bar' );
 	
-This is the heart of the HiLiter. We keverage the speed of Perl's regexp engine 
+This is the heart of the HiLiter. We leverage the speed of Perl's regexp engine 
 against the complication of a regexp that matches inline tags, entities, and combinations of both.
 
 =cut
@@ -1465,14 +1549,12 @@ sub add_hilite_tags
 	(my $prefixed = $to_hilite) =~ s,($tag_regexp+),${nocolor}$close$1$open${color},g;
 		
 	my $c = 0;
-	$c = ($html =~ s/($safe)/${open}${color}${prefixed}${nocolor}${close}/sxi );
-									# no g
-									# instead rely on count
-									# in calling routine
-									# to avoid hiliting
-									# something twice
+	$c = ($html =~ s/($safe)/${open}${color}${prefixed}${nocolor}${close}/g );
+							# no -s, -i or -x flags wanted or needed
+							# since we watch exact (case sensitive) matches
+							# on real, previously identified HTML
 	
-	if ($debug == 3) {
+	if ($debug == 1) {
 		print	$OC .
 			"SAFE was $safe\n".
 			"PREFIXED was $prefixed\n".
@@ -1577,10 +1659,7 @@ Parse a list of query strings and return them as individual word/phrase tokens.
 Removes stopwords and metanames from queries.
 
 	my @q = $hiliter->prep_queries( ['foo', 'bar', 'baz'] );
-	
-Use in combination with SWISH->ParsedWords() since that function
-will return the actual words used in search, parsed in an array. See the EXAMPLES.
-	
+		
 The reason we support multiple @query instead of $query is to allow for compounded searches.
 
 Don't worry about 'not's since those aren't going to be in the
@@ -1708,7 +1787,7 @@ found, how many highlighted, and how many missed.
 		}
 	}
 
-	# reset report, so it can be multiply with single object
+	# reset report, so it can be used multiply with single object
 	delete $self->{Report};
 
 	return $report;
@@ -1795,8 +1874,6 @@ An example for SWISH::API users (SWISH-E 2.4 and later).
 	# use as CGI script.
 	# NOTE this is not a pretty output -- dress it up as you will
 	
-	# usage: script.cgi?q=foo
-	
 	use CGI;
 	my $cgi = new CGI;
 	$| = 1;
@@ -1815,11 +1892,12 @@ An example for SWISH::API users (SWISH-E 2.4 and later).
 	
 	use HTML::HiLiter;
 	
+	#$HTML::HiLiter::debug = 1;
 	my $hiliter = new HTML::HiLiter(
-				Force => 1,  # because swishdescription
+				#Force => 1,  # because swishdescription
 					     # is not stored as HTML
 				SWISHE => $swish,
-				parser=> 0,  # don't load HTML::Parser
+				Parser=> 0,  # don't load HTML::Parser
 				);
 	
 
@@ -1846,8 +1924,9 @@ An example for SWISH::API users (SWISH-E 2.4 and later).
 
         print "Found ", $results->Hits, " hits\n";
 
+	my $query_str = join(' ', @query );
 	$hiliter->Queries(
-			[ join(' ', @query ) ],
+			[ $query_str ],
 			[ @metanames ]
 			);
 	$hiliter->Inline;
@@ -1906,9 +1985,10 @@ An example for SWISH::API users (SWISH-E 2.4 and later).
 		# test if $desc contains any of our query words
 	  	my @snips;
 	  	Q: for my $q (keys %{ $hiliter->{Queries} }) {
-	  	  if ($desc =~ m/(.*?)\Q$q\E(.*)/si) {
+	  	  if ($desc =~ m/(.*?)(\Q$q\E)(.*)/si) {
 			my $bef = $1;
-			my $af = $2;
+			my $qm = $2;
+			my $af = $3;
 			$bef = substr $bef, -$context_chars;
 			$af = substr $af, 0, $context_chars;
 			
@@ -1916,10 +1996,10 @@ An example for SWISH::API users (SWISH-E 2.4 and later).
 			$af =~ s,^\S+\s+|\s+\S+$,,gs;
 			$bef =~ s,^\S+\s+|\s+\S+$,,gs;
 
-			push(@snips, "$bef $q $af");
+			push(@snips, "$bef $qm $af");
 		  }
 	  	}
-	  	my $ellip = '...';
+	  	my $ellip = ' ... ';
 	  	my $snippet = $ellip. join($ellip, @snips) . $ellip;
 	  
 	  	# convert special HTML characters
@@ -2079,6 +2159,16 @@ as well.
 	removed dependency on HTML::Entities by hardcoding all relevant entities.
 	  (HTML::Entities does a 'require HTML::Parser' which made the parser=>0
 	  feature break.)
+	  
+ * 0.09
+ 	added Print feature to new() to allow Run() to return highlighted text instead
+	  of automatically printing in a streaming fashion. Set Print=>0 to turn off print().
+	Run() now returns highlighted text if Print=>0.
+	changed parser=>0 to Parser=>0.
+	the ParsedWords bug reported in 0.08 was really with my example in get_snippet().
+	  so rather than blame someone else's code, I fixed mine... :)
+	fixed bug with count of real HTML matches that was most evident with running hilite()
+	added test2.t test to test the Parser=>0 feature
 	
 	
 	
