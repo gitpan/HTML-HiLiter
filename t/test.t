@@ -11,17 +11,23 @@ $HTML::HiLiter::debug=1;
 
 my $file = 't/test.html';
 
-my @q = ('"quick brown"', 'fox*');
-
-
-my $hiliter = new HTML::HiLiter(
-				Links=>1,
-				);
-
-$hiliter->Queries(\@q);
-$hiliter->CSS;
+my @q = ('foo = "quick brown" and bar=(fox* or run)',
+	 'runner',
+	 '"over the too lazy dog"',
+	 '"c++ filter"',
+	 '"-h option"',
+	 'laz',
+	 'fakefox'
+	);
 
 select(STDERR);
+my $hiliter = new HTML::HiLiter(
+				Links=>1
+				);
+
+$hiliter->Queries(\@q, [ qw(foo bar) ]);
+$hiliter->CSS;
+
 print STDOUT "ok\n" if $hiliter->Run($file);
 select(STDOUT);
 

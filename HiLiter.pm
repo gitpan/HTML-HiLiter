@@ -21,13 +21,13 @@ use vars qw(@ISA @EXPORT $VERSION);
 
 @EXPORT = qw( );
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 =pod
 
 =head1 NAME
 
-HTML::HiLiter - mark words in an HTML document just like a felt-tip HiLiter
+HTML::HiLiter - highlight words in an HTML document just like a felt-tip HiLiter
 
 
 =head1 DESCRIPTION
@@ -82,6 +82,9 @@ HTML::Entities
 
 =item
 HTML::Tagset
+
+=item
+Text::ParseWords
 
 =item
 HTTP::Request (only if fetching HTML via http)
@@ -155,17 +158,19 @@ use vars qw( $BegChar $EndChar $WordChar $White_Space $HiTag
 $OC = "\n<!--\n";
 $CC = "\n-->\n";
 
+# ISO 8859 Latin1 encodings
+# IMPORTANT: in perl 5.8 and later, HTML::Entities will encode with unicode
+# which is not useful for most web display.
+my $ISO_ext = 'ªµºÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ';
 
 # SWISH-E users:
 # WordChars should be WordCharacters class
 # but should probably never include <> just to be safe.
 
-my $ISO_ext = 'ªµºÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ';
-
 # the default SWISH definition??
-$WordChar = '\w' . $ISO_ext . './';
+$WordChar = '\w' . $ISO_ext . './-';
 
-$BegChar = '\w' . $ISO_ext;
+$BegChar = '\w' . $ISO_ext . './-';
 
 $EndChar = '\w' . $ISO_ext;
 
@@ -196,7 +201,7 @@ $buffer = '';		# init the buffer
 
 $hrefs = [];		# init the href buffer (for Links option)
 
-$debug = 0;		# set to 0 to avoid all the STDERR output
+$debug = 0;		# set to 0 to avoid all the output
 
 # if we're running via terminal (usually for testing)
 # and the Term::ANSIColor module is installed
@@ -280,6 +285,8 @@ sub _init
 	# since &lt; or &gt; can be indexed as literal < and >, at least by SWISH-E
 	for (qw(WordCharacters EndCharacters BeginCharacters))  {
 		$self->{$_} =~ s,[<>&],,g;
+		# escape the - since it is special in a [] class
+		$self->{$_} =~ s,[^\\]-,\\-,g;
 	}
 	
 	
@@ -294,8 +301,10 @@ sub _init
 	# against the beginning or end of a tagset
 	# like <p>Word or Word</p>
 
-	$self->{StartBound} 	||= join('|', '\A?', '[\s]', '[^>;]', "[^$self->{BeginCharacters}]" ) ;
-	$self->{EndBound} 	||= join('|', '\Z?', '[\s]', '[^<&]', "[^$self->{EndCharacters}]" ) ;
+	$self->{StartBound} 	||= join('|', '\A?', '\s', '[^>;' . $self->{BeginCharacters} . ']' ) ;
+	#$self->{EndBound} 	||= join('|', '\Z?', '[\s]', '[^<&]', "[^$self->{EndCharacters}]" ) ;
+	#$self->{StartBound} 	||= join('|', '\A?', "[^\\S>;$self->{BeginCharacters}]" ) ;
+	$self->{EndBound} 	||= '\Z|[\s<]|[^' . $self->{EndCharacters} . ']';
 	$self->{HiTag} 		||= $HiTag;
 	$self->{Colors} 	||= [ '#FFFF33', '#99FFFF', '#66FFFF', '#99FF99' ];					
 	$self->{Links}		||= 0;		# off by default
@@ -332,7 +341,7 @@ Example:
 				TagFilter =>	\&yourcode(),
 				TextFilter =>	\&yourcode(),
 				Force	=>	1,
-				SWISHE	=>	$swishe_api_object
+				SWISHE	=>	$swish_api_object
 					);
 	
 
@@ -415,12 +424,12 @@ The following variables may be redefined by your script.
 =item
 $HTML::HiLiter::Delim
 
-The phrase-delimiter. Default is double quotation marks (").
+The phrase delimiter. Default is double quotation marks (").
 
 =item 
 $HTML::HiLiter::debug
 
-Debugging info prints on STDERR. Default is 0. Set it to 1
+Debugging info prints on STDOUT inside <!-- --> comments. Default is 0. Set it to 1
 to enable debugging.
 
 =item
@@ -817,6 +826,11 @@ sub hi_lite
 		
 	$plainascii->eof;	# resets parser
 	
+	$tagless =~ s,&#821[12];,-,g;	# common Cray DocBook entity
+					# is Unicode and needs special translation
+					# since it gets filtered on indexing
+	
+	
 	$tagless ||= $html;	# sometimes it's just a single &nbsp; or something
 				# and we end up with ' '.
 				
@@ -1030,7 +1044,52 @@ sub all_char_entities
 {
 
 	require HTML::Entities;	# since they've already defined all the char entities for us
-	return \%HTML::Entities::char2entity;
+	my $E = \%HTML::Entities::char2entity;
+
+##############################################################################################
+# http://www.pemberley.com/janeinfo/latin1.html
+# The CP1252 characters that are not part of ANSI/ISO 8859-1, and that should therefore always
+# be encoded as Unicode characters greater than 255, are the following:
+
+# Windows   Unicode    Char.
+#  char.   HTML code   test         Description of Character
+#  -----     -----     ---          ------------------------
+#ALT-0130   &#8218;   â    Single Low-9 Quotation Mark
+#ALT-0131   &#402;    Ä    Latin Small Letter F With Hook
+#ALT-0132   &#8222;   ã    Double Low-9 Quotation Mark
+#ALT-0133   &#8230;   É    Horizontal Ellipsis
+#ALT-0134   &#8224;        Dagger
+#ALT-0135   &#8225;   à    Double Dagger
+#ALT-0136   &#710;    ö    Modifier Letter Circumflex Accent
+#ALT-0137   &#8240;   ä    Per Mille Sign
+#ALT-0138   &#352;    ?    Latin Capital Letter S With Caron
+#ALT-0139   &#8249;   Ü    Single Left-Pointing Angle Quotation Mark
+#ALT-0140   &#338;    Î    Latin Capital Ligature OE
+#ALT-0145   &#8216;   Ô    Left Single Quotation Mark
+#ALT-0146   &#8217;   Õ    Right Single Quotation Mark
+#ALT-0147   &#8220;   Ò    Left Double Quotation Mark
+#ALT-0148   &#8221;   Ó    Right Double Quotation Mark
+#ALT-0149   &#8226;   ¥    Bullet
+#ALT-0150   &#8211;   Ð    En Dash
+#ALT-0151   &#8212;   Ñ    Em Dash
+#ALT-0152   &#732;    ÷    Small Tilde
+#ALT-0153   &#8482;   ª    Trade Mark Sign
+#ALT-0154   &#353;    ?    Latin Small Letter S With Caron
+#ALT-0155   &#8250;   Ý    Single Right-Pointing Angle Quotation Mark
+#ALT-0156   &#339;    Ï    Latin Small Ligature OE
+#ALT-0159   &#376;    Ù    Latin Capital Letter Y With Diaeresis
+#
+##############################################################################################
+
+# NOTE that all the Char tests will likely fail above unless your terminal/editor
+# supports Unicode
+
+# browsers should support these numbers, and in order for perl < 5.8 to work correctly,
+# we add the most common if missing
+
+# define any custom entities here with $E
+
+	return $E;
 	
 }
 
@@ -1144,6 +1203,9 @@ sub build_regexp
 		if ($c eq '\ ') {
 			$c = "(?-xsm:$White_Space)+" . $tag_regexp . '*';
 			next CHAR;
+		} elsif ($c eq '\-') {
+		# special case for dashes per Cray DocBook
+			$c = "$c|&#8211;|&#8212;";
 		}
 		
 		my $aka = $ent eq "&#$num;" ? $ent : "$ent|&#$num;";
@@ -1299,11 +1361,14 @@ sub urlify_ascii
 
 sub prep_queries
 {
+
+	require Text::ParseWords;
+
 	my $self = shift;
 	my @query = @{ shift(@_) };
 	my $metanames = shift || [];
 	my $stopwords = shift || $self->{StopWords} || [];
-	my $word_char = $self->{WordCharacters} || $WordChar;
+	#my $word_char = $self->{WordCharacters} || $WordChar;
 	
 	# use in combination with SWISH->ParsedWords() since that function
 	# will return the actual words used in search, parsed in an array
@@ -1314,7 +1379,7 @@ sub prep_queries
 	# don't worry about 'not's since those aren't going to be in the
 	# results anyway. we'll just let the highlight fail.
 	
-	my (%words,%phrases,%uniq);
+	my (%words,%uniq);
 	
 	my $quot = ord($Delim);
 	my $lparen = ord('(');
@@ -1329,7 +1394,7 @@ sub prep_queries
 		print $OC . "raw:$q:" . $CC if $debug == 1;
 		
 		# remove any swish metanames from each query
-		$q =~ s,\b$_\s*=,,gi for @$metanames;
+		$q =~ s,\b$_\s*=\s*,,gi for @$metanames;
 				
 		# no () groupers
 		# replace with space, in case we have something like
@@ -1338,26 +1403,29 @@ sub prep_queries
 		
 		print $OC . "ready:$q:" . $CC if $debug == 1;
 
-		$q =~ s/($Q)(.*?)($Q)/ eval { $phrases{$2}++ } /xesgi;
+		#$q =~ s/($Q)(.*?)($Q)/ eval { $phrases{$2}++ } /xesgi;
 		# substitution removes phrases and remembers them in hash
 		
-		$q =~ s/(\S+)/ eval { $words{$1}++ } /xesgi;
+		#$q =~ s/(\S+)/ eval { $words{$1}++ } /xesgi;
 		# same for singleton words
 		
+		my @words = Text::ParseWords::shellwords($q);
+		
+		$uniq{$_}++ for @words;
 	}
 
 	# clean up:
 
 	# strip singleton \ slashes, since highlite will quotemeta 
-	s/\\([^\\])/$1/g, s/\\\\/\\/g, s/^\s+|\s+$//g
-		for (keys %phrases, keys %words);
+	#s/\\([^\\])/$1/g, s/\\\\/\\/g, s/^\s+|\s+$//g
+	#	for (keys %phrases, keys %words);
 
 	# no extra whitespace, and everything unique
-	s/\s+/\ /g, s/^\s+|\s+$//g, $uniq{$_}++
-		for (keys %phrases, keys %words);
+	#s/\s+/\ /g, s/^\s+|\s+$//g, $uniq{$_}++
+	#	for (keys %words);
 
-	delete $uniq{''};
-	delete $uniq{0};	# parsing errors generate this value
+	#delete $uniq{''};
+	#delete $uniq{0};	# parsing errors generate this value
 	# remove keywords from words but not phrases
         # because we can search for a literal 'and' or 'or' inside a phrase
 	delete $uniq{'and'};
@@ -1386,7 +1454,7 @@ sub prep_queries
 	}
 	print $OC . '~' x 40 . $CC if $debug == 1;	
 	
-	return ( [ sort keys %uniq ] );
+	return ( [ sort keys %uniq ] );	# sort just makes repeated debuggings easier
 }
 
 sub Report
@@ -1736,7 +1804,7 @@ I find it very helpful.
 
 =item *
 
-Better approach to stopwords in parse_query().
+Better approach to stopwords in prep_queries().
 
 =item *
 
@@ -1757,6 +1825,18 @@ as well.
 	
 
 =back
+
+=head1 HISTORY
+
+ * 0.05
+	first CPAN release
+
+ * 0.06
+	use Text::ParseWords instead of original clumsy regexps in prep_queries()
+	add support for 8211 (ndash) and 8212 (mdash) entities
+	tweeked StartBound and EndBound to not match within a word
+	fixed doc to reflect that debugging prints on STDOUT, not STDERR
+
 
 =head1 KNOWN BUGS
 
