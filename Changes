@@ -42,4 +42,11 @@ Revision history for Perl extension HiLiter.
                added test2.t test to test the Parser=>0 feature
 
 
-
+* 0.10
+               fixed prep_queries() perldoc head
+               Queries() now returns hash ref of q => regexp
+               fixed SWISH::API example to use new Queries()
+               fixed Queries() perldoc
+               added StopWords note to prep_queries()
+               fixed regexp that caused make test to fail in perl < 5.8.1 (thanks to m@perlmeister.com)
+               added note to hilite() perldoc to always use Inline()

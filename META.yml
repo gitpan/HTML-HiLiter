@@ -1,6 +1,6 @@
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         HTML-HiLiter
-version:      0.09
+version:      0.10
 version_from: HiLiter.pm
 installdirs:  site
 requires:

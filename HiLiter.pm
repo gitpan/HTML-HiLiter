@@ -14,7 +14,7 @@ use vars qw(@ISA @EXPORT $VERSION);
 
 @EXPORT = qw( );
 
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 =pod
 
@@ -921,6 +921,8 @@ NOTE to SWISH::API users: be wary of using the SWISH::API ParsedWords() method w
 Queries() as SWISH::API will lowercase all your queries. This will result
 in the highlighted words being lowercased as well, which may not be what you want.
 
+Returns a hash ref of the queries, with key = query and value = regexp.
+
 =cut
 
 	my $self = shift;
@@ -939,6 +941,8 @@ in the highlighted words being lowercased as well, which may not be what you wan
 	}
 
 	$self->{Queries} = $q2regexp;
+	
+	return $self->{Queries};
 	
 }
 
@@ -1089,9 +1093,11 @@ sub hilite
 =head2 hilite( html, links )
 
 Usually accessed via Run() but documented here in case you want to run without
-the HTML::Parser. Returns the text, highlighted. Note that either CSS() or Inline()
-must be run prior to calling this method, so that the object has the styles defined.
-See EXAMPLES.
+the HTML::Parser. Returns the text, highlighted. Note that CSS() will probably
+not work for you here; use Inline() prior to calling this method, 
+so that the object has the styles defined.
+
+See SWISH::API in EXAMPLES.
 
 NOTE: that the second param 'links' is an array ref and only works if using the 
 HTML::Parser and you have set the Links param in the new() method -- 
@@ -1219,8 +1225,10 @@ Example:
 		   	print $OC . "found LINK: $link" , $CC if $debug == 1;
 			
 			my $s = quotemeta($link);
-			
-			my $re = qq!(.?)(<a.*?href=['"]${s}["'].*?>.*?</a>)(.?)!;
+	
+	# thanks to Mike Schilli m@perlmeister.com for this regexp fix
+			my $re = qq!(.?)(<a.*?href=['"]${s}! . qq!"["'].*?>.*?</a>)(.?)!;
+			#my $re = qq!(.?)(<a.*?href=['"]${s}["'].*?>.*?</a>)(.?)!;
 			
 			my $link_plus_txt = get_real_html( $html, $re );
 			
@@ -1653,7 +1661,7 @@ sub prep_queries
 
 =pod
 
-=head2 prep_queries( \@queries, \@metanames, \@stopwords
+=head2 prep_queries( \@queries [, \@metanames, \@stopwords ] )
 
 Parse a list of query strings and return them as individual word/phrase tokens.
 Removes stopwords and metanames from queries.
@@ -1664,6 +1672,9 @@ The reason we support multiple @query instead of $query is to allow for compound
 
 Don't worry about 'not's since those aren't going to be in the
 results anyway. Just let the highlight fail.
+
+NOTE that you do not need to pass @stopwords when you used the SWISHE option in the new()
+call, since the HiLiter object will contain a StopWords parameter.
 
 =cut
 
@@ -1925,10 +1936,11 @@ An example for SWISH::API users (SWISH-E 2.4 and later).
         print "Found ", $results->Hits, " hits\n";
 
 	my $query_str = join(' ', @query );
-	$hiliter->Queries(
-			[ $query_str ],
-			[ @metanames ]
-			);
+	my @parsed_query = keys %{ $hiliter->Queries(
+					[ $query_str ],
+					[ @metanames ]
+					)
+				};
 	$hiliter->Inline;
 
         # highlight the queries in each file description
@@ -1984,7 +1996,7 @@ An example for SWISH::API users (SWISH-E 2.4 and later).
 		my $desc = shift || return '';
 		# test if $desc contains any of our query words
 	  	my @snips;
-	  	Q: for my $q (keys %{ $hiliter->{Queries} }) {
+	  	Q: for my $q (@parsed_query) {
 	  	  if ($desc =~ m/(.*?)(\Q$q\E)(.*)/si) {
 			my $bef = $1;
 			my $qm = $2;
@@ -2025,7 +2037,6 @@ An example for SWISH::API users (SWISH-E 2.4 and later).
 	my $f = param('f');
 	my (@q) = param('q');
 
-	use lib qw(/Users/karpet/perl_mods);
 	use HTML::HiLiter;
 
 	my $hl = new HTML::HiLiter;
@@ -2170,6 +2181,14 @@ as well.
 	fixed bug with count of real HTML matches that was most evident with running hilite()
 	added test2.t test to test the Parser=>0 feature
 	
+ * 0.10
+ 	fixed prep_queries() perldoc head
+	Queries() now returns hash ref of q => regexp
+	fixed SWISH::API example to use new Queries()
+	fixed Queries() perldoc
+	added StopWords note to prep_queries()
+	fixed regexp that caused make test to fail in perl < 5.8.1 (thanks to m@perlmeister.com)
+	added note to hilite() perldoc to always use Inline()
 	
 	
 =head1 KNOWN BUGS
