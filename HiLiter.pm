@@ -14,7 +14,7 @@ use vars qw(@ISA @EXPORT $VERSION);
 
 @EXPORT = qw( );
 
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 =pod
 
@@ -34,7 +34,9 @@ Unlike other highlighting code I've found, this one supports nested tags and
 character entities, such as might be found in technical documentation or HTML
 generated from some other source (like DocBook SGML or XML). I would suggest 
 B<not> using HTML::HiLiter if your HTML is fairly simple, since in 
-HTML::HiLiter, speed has been sacrificed for accuracy.
+HTML::HiLiter, speed has been sacrificed for accuracy. Or, you might try using
+the parser=>0 feature, which should speed up the run time but doesn't support
+all the features.
 
 The goal is server-side highlighting that looks as if you used a felt-tip marker
 on the HTML page. You shouldn't need to know what the underlying tags and entities and
@@ -145,16 +147,145 @@ the highlighting appearance in one of your own CSS files.
 
 use vars qw( $BegChar $EndChar $WordChar $White_Space $HiTag 
 		$CSS_Class $hrefs $buffer $debug $Delim $color $nocolor
-		$OC $CC
+		$OC $CC %entity2char %codeunis %unicodes %char2entity $ISO_ext
+		@whitesp
 		);
 
 $OC = "\n<!--\n";
 $CC = "\n-->\n";
 
+
 # ISO 8859 Latin1 encodings
-# IMPORTANT: in perl 5.8 and later, HTML::Entities will encode with unicode
-# which is not useful for most web display.
-my $ISO_ext = 'ªµºÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖØÙÚÛÜİŞßàáâãäåæçèéêëìíîïğñòóôõöøùúûüışÿ';
+
+# remove dependency on HTML::Entities by copying them all here
+# we don't use the functions in HTML::Entities and it does a require HTML::Parser anyway
+%entity2char = (
+ # Some normal chars that have special meaning in SGML context
+ amp    => '&',  # ampersand 
+'gt'    => '>',  # greater than
+'lt'    => '<',  # less than
+ quot   => '"',  # double quote
+ apos   => "'",  # single quote
+
+ # PUBLIC ISO 8879-1986//ENTITIES Added Latin 1//EN//HTML
+ AElig	=> 'Æ',  # capital AE diphthong (ligature)
+ Aacute	=> 'Á',  # capital A, acute accent
+ Acirc	=> 'Â',  # capital A, circumflex accent
+ Agrave	=> 'À',  # capital A, grave accent
+ Aring	=> 'Å',  # capital A, ring
+ Atilde	=> 'Ã',  # capital A, tilde
+ Auml	=> 'Ä',  # capital A, dieresis or umlaut mark
+ Ccedil	=> 'Ç',  # capital C, cedilla
+ ETH	=> 'Ğ',  # capital Eth, Icelandic
+ Eacute	=> 'É',  # capital E, acute accent
+ Ecirc	=> 'Ê',  # capital E, circumflex accent
+ Egrave	=> 'È',  # capital E, grave accent
+ Euml	=> 'Ë',  # capital E, dieresis or umlaut mark
+ Iacute	=> 'Í',  # capital I, acute accent
+ Icirc	=> 'Î',  # capital I, circumflex accent
+ Igrave	=> 'Ì',  # capital I, grave accent
+ Iuml	=> 'Ï',  # capital I, dieresis or umlaut mark
+ Ntilde	=> 'Ñ',  # capital N, tilde
+ Oacute	=> 'Ó',  # capital O, acute accent
+ Ocirc	=> 'Ô',  # capital O, circumflex accent
+ Ograve	=> 'Ò',  # capital O, grave accent
+ Oslash	=> 'Ø',  # capital O, slash
+ Otilde	=> 'Õ',  # capital O, tilde
+ Ouml	=> 'Ö',  # capital O, dieresis or umlaut mark
+ THORN	=> 'Ş',  # capital THORN, Icelandic
+ Uacute	=> 'Ú',  # capital U, acute accent
+ Ucirc	=> 'Û',  # capital U, circumflex accent
+ Ugrave	=> 'Ù',  # capital U, grave accent
+ Uuml	=> 'Ü',  # capital U, dieresis or umlaut mark
+ Yacute	=> 'İ',  # capital Y, acute accent
+ aacute	=> 'á',  # small a, acute accent
+ acirc	=> 'â',  # small a, circumflex accent
+ aelig	=> 'æ',  # small ae diphthong (ligature)
+ agrave	=> 'à',  # small a, grave accent
+ aring	=> 'å',  # small a, ring
+ atilde	=> 'ã',  # small a, tilde
+ auml	=> 'ä',  # small a, dieresis or umlaut mark
+ ccedil	=> 'ç',  # small c, cedilla
+ eacute	=> 'é',  # small e, acute accent
+ ecirc	=> 'ê',  # small e, circumflex accent
+ egrave	=> 'è',  # small e, grave accent
+ eth	=> 'ğ',  # small eth, Icelandic
+ euml	=> 'ë',  # small e, dieresis or umlaut mark
+ iacute	=> 'í',  # small i, acute accent
+ icirc	=> 'î',  # small i, circumflex accent
+ igrave	=> 'ì',  # small i, grave accent
+ iuml	=> 'ï',  # small i, dieresis or umlaut mark
+ ntilde	=> 'ñ',  # small n, tilde
+ oacute	=> 'ó',  # small o, acute accent
+ ocirc	=> 'ô',  # small o, circumflex accent
+ ograve	=> 'ò',  # small o, grave accent
+ oslash	=> 'ø',  # small o, slash
+ otilde	=> 'õ',  # small o, tilde
+ ouml	=> 'ö',  # small o, dieresis or umlaut mark
+ szlig	=> 'ß',  # small sharp s, German (sz ligature)
+ thorn	=> 'ş',  # small thorn, Icelandic
+ uacute	=> 'ú',  # small u, acute accent
+ ucirc	=> 'û',  # small u, circumflex accent
+ ugrave	=> 'ù',  # small u, grave accent
+ uuml	=> 'ü',  # small u, dieresis or umlaut mark
+ yacute	=> 'ı',  # small y, acute accent
+ yuml	=> 'ÿ',  # small y, dieresis or umlaut mark
+
+ # Some extra Latin 1 chars that are listed in the HTML3.2 draft (21-May-96)
+ copy   => '©',  # copyright sign
+ reg    => '®',  # registered sign
+ nbsp   => "\240", # non breaking space
+
+ # Additional ISO-8859/1 entities listed in rfc1866 (section 14)
+ iexcl  => '¡',
+ cent   => '¢',
+ pound  => '£',
+ curren => '¤',
+ yen    => '¥',
+ brvbar => '¦',
+ sect   => '§',
+ uml    => '¨',
+ ordf   => 'ª',
+ laquo  => '«',
+'not'   => '¬',    # not is a keyword in perl
+ shy    => '­',
+ macr   => '¯',
+ deg    => '°',
+ plusmn => '±',
+ sup1   => '¹',
+ sup2   => '²',
+ sup3   => '³',
+ acute  => '´',
+ micro  => 'µ',
+ para   => '¶',
+ middot => '·',
+ cedil  => '¸',
+ ordm   => 'º',
+ raquo  => '»',
+ frac14 => '¼',
+ frac12 => '½',
+ frac34 => '¾',
+ iquest => '¿',
+'times' => '×',    # times is a keyword in perl
+ divide => '÷'
+
+);
+
+while (my($entity, $char) = each(%entity2char)) {
+    $char2entity{$char} = "&$entity;";
+}
+delete $char2entity{"'"};  # only one-way decoding
+
+# Fill in missing entities
+for (0 .. 255) {
+    next if exists $char2entity{chr($_)};
+    $char2entity{chr($_)} = "&#$_;";
+}
+
+########## end copy from HTML::Entities
+
+# a subset of chars per SWISHE
+$ISO_ext = 'ªµºÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖØÙÚÛÜİŞßàáâãäåæçèéêëìíîïğñòóôõöøùúûüışÿ';
 
 ######################################################################################
 # http://www.pemberley.com/janeinfo/latin1.html
@@ -197,7 +328,7 @@ my $ISO_ext = 'ªµºÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖØÙÚÛÜİŞßàáâãäåæçèéêëìíîïğñòóôõöøùúûüışÿ
 # browsers should support these numbers, and in order for perl < 5.8 to work correctly,
 # we add the most common if missing
 
-my $unicodes = {
+%unicodes = (
 		8218	=> "'",
 		402	=> 'f',
 		8222	=> '"',
@@ -221,15 +352,15 @@ my $unicodes = {
 		710	=> '^',
 		338	=> 'OE',
 		339	=> 'oe',
-	};
-	my %codeunis = ();
-	for (keys %$unicodes) {
+);
+
+for (keys %unicodes) {
 	# quotemeta required since build_regexp will look for the \
-		my $ascii = quotemeta($unicodes->{$_});
-		next if length $ascii > 2;
-		#warn "pushing $_ into $ascii\n";
-		push(@{ $codeunis{$ascii} }, $_);
-	}
+	my $ascii = quotemeta($unicodes{$_});
+	next if length $ascii > 2;
+	#warn "pushing $_ into $ascii\n";
+	push(@{ $codeunis{$ascii} }, $_);
+}
 	
 ################################################################################
 
@@ -246,7 +377,7 @@ $EndChar = '\w' . $ISO_ext;
 
 # regexp for what constitutes whitespace in an HTML doc
 # it's not as simple as \s|&nbsp; so we define it separately
-my @whitesp = (
+@whitesp = (
 		'&#x0020;',
 		'&#x0009;',
 		'&#x000C;',
@@ -388,14 +519,14 @@ sub _init
 						
 	# load the parser unless explicitly asked not to
 	# i.e., we might be using methods without parsing HTML
-	unless( defined($self->{parser}) and ! $self->{parser} ) {
+	unless ( defined($self->{parser}) && $self->{parser} == 0) {
 		require HTML::Parser;
 		require HTML::Tagset;
 		# HTML::Tagset::isHeadElement doesn't define these,
 		# so we add them here
 		$HTML::Tagset::isHeadElement{'head'}++;
 		$HTML::Tagset::isHeadElement{'html'}++;
-	}			
+	}
 						
 =pod
 
@@ -726,6 +857,10 @@ If using SWISH-E, Queries() takes a second parameter: a reference
 to an array of a metanames. If the metanames are used as part of the query,
 they will be removed from the regexp used for highlighting.
 
+NOTE to SWISH::API users: be wary of using the SWISH::API ParsedWords() method with
+Queries() as SWISH::API will lowercase all your queries. This will result
+in the highlighted words being lowercased as well, which may not be what you want.
+
 =cut
 
 	my $self = shift;
@@ -796,6 +931,8 @@ sub Run
 
 Run() takes either a file name, a URL (indicated by a leading 'http://'),
 or a scalar reference to a string of HTML text.
+
+The HTML::Parser must be used with this method.
 
 =cut
 
@@ -923,6 +1060,7 @@ Example:
 	my $tagless = '';
 	
 	# wrap in an eval{} in case HTML::Parser isn't loaded
+
 	eval {
 		my $plainascii = new HTML::Parser(
 			unbroken_text => 1,
@@ -938,8 +1076,8 @@ Example:
 	$tagless ||= $html;	# sometimes it's just a single &nbsp; or something
 				# and we end up with ' '.
 	
-	for my $num (keys %$unicodes) {
-		$tagless =~ s,&#$num;,$unicodes->{$num},g;
+	for my $num (keys %unicodes) {
+		$tagless =~ s,&#$num;,$unicodes{$num},g;
 		# some special Unicode entities
 		# that get special ascii equivs for DocBook source
 	}	
@@ -1149,18 +1287,6 @@ sub setup_style
 }
 
 
-sub all_char_entities
-{
-
-	require HTML::Entities;	# since they've already defined all the char entities for us
-	my $E = \%HTML::Entities::char2entity;
-
-# define any custom entities here with $E
-
-	return $E;
-	
-}
-
 sub get_real_html
 {
 
@@ -1262,7 +1388,6 @@ against the complication of a regexp that matches inline tags, entities, and com
 	my $st_bound = $self->{StartBound};
 	my $end_bound = $self->{EndBound};
 
-	my $char_ents = all_char_entities();
 	my (@char) = split(//,$match);
 	
 	my $counter = -1;
@@ -1271,7 +1396,7 @@ against the complication of a regexp that matches inline tags, entities, and com
 	{
 		$counter++;
 		
-		my $ent = $char_ents->{$c} || warn "no entity defined for >$c< !\n";
+		my $ent = $char2entity{$c} || warn "no entity defined for >$c< !\n";
 		my $num = ord($c);		
 		# if this is a special regexp char, protect it
 		$c = quotemeta($c);
@@ -1721,9 +1846,8 @@ An example for SWISH::API users (SWISH-E 2.4 and later).
 
         print "Found ", $results->Hits, " hits\n";
 
-	my $query_str = join(' ', $results->ParsedWords( $index ) );
 	$hiliter->Queries(
-			[ $query_str ],
+			[ join(' ', @query ) ],
 			[ @metanames ]
 			);
 	$hiliter->Inline;
@@ -1946,8 +2070,16 @@ as well.
 	corrected perldoc for Queries() to refer to metanames as second param
 	updated SWISH::API example to avoid using HTML::Parser
 	added unicode entity -> ascii equivs for better DocBook support
-		(NOTE: this expands the ndash/mdash feature from 0.06)
+	  (NOTE: this expands the ndash/mdash feature from 0.06)
 	misc cleanup
+	
+ * 0.08
+ 	fixed bug in SWISH::API example with ParsedWords and updated Queries()
+	  perldoc to reflect the change.
+	removed dependency on HTML::Entities by hardcoding all relevant entities.
+	  (HTML::Entities does a 'require HTML::Parser' which made the parser=>0
+	  feature break.)
+	
 	
 	
 =head1 KNOWN BUGS

@@ -24,3 +24,11 @@ Revision history for Perl extension HiLiter.
                        (NOTE: this expands the ndash/mdash feature from 0.06)
                misc cleanup
 
+* 0.08
+               fixed bug in SWISH::API example with ParsedWords and updated Queries()
+                 perldoc to reflect the change.
+               removed dependency on HTML::Entities by hardcoding all relevant entities.
+                 (HTML::Entities does a 'require HTML::Parser' which made the parser=>0
+                 feature break.)
+
+
