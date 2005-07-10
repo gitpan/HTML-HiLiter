@@ -1,11 +1,11 @@
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         HTML-HiLiter
-version:      0.11
+version:      0.12
 version_from: HiLiter.pm
 installdirs:  site
 requires:
-    Test::Simple:                  0.47
     Text::ParseWords:              3.2
+    Test::Simple:                  0.47
 
 distribution_type: module
 generated_by: ExtUtils::MakeMaker version 6.12
