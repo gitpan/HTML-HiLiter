@@ -81,3 +81,9 @@ Revision history for Perl extension HiLiter.
     bug fix: plaintext() not called if text contains entities
     mpeters@plusthree.com contributed the HiClass feature.
     added filter example to lightfile.cgi
+
+* 0.13
+    mpeters@plusthree caught two bugs: -t STDOUT for ANSI terminal colors and lack of ref()
+                                       check for subclassing the parser object
+    changed Author info to reflect new email address
+

@@ -6,7 +6,7 @@ HTML::HiLiter - highlight words in an HTML document just like a felt-tip HiLiter
 
 =head1 VERSION
 
-0.12
+0.13
 
 =cut
 
@@ -42,7 +42,7 @@ unless ($@) {
 #$ticker = 0;
 
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 
 $OC = "\n<!--\n";
@@ -313,7 +313,7 @@ $color = '';
 $nocolor = '';
 
 
-if (-t STDOUT) {
+if ( $ENV{HTML_HILITER_TERMINAL} ) {
 	eval { require Term::ANSIColor };
 	unless ($@) {
 		
@@ -815,7 +815,7 @@ sub Run
 	};
 	
 	if (! $self->{Print}) {
-		$default_h = sub { $self->{Buffer} .= $_ for @_ };
+		$default_h = sub { for (@_) { $self->{Buffer} .= $_ unless ref $_ } };
 	}
 	
 	if ( -e $file_or_html )	# should handle files or filehandles
@@ -1795,24 +1795,21 @@ sub prep_queries
 
 sub _stem
 {
+# this is a copy of SWISH::HiLiter::stem()
 
     my $self = shift;
     my $w = shift;
 	my $i = $self->{swishindex};
 	
-    my $fw = $self->{swishobj}->Fuzzy( $i, $w );
-    
+    my $fw = $self->{swishobj}->Fuzzify( $i, $w );
     my @fuzz = $fw->WordList;
-    
     if ( my $e = $fw->WordError ) {
     
     	warn "Error in Fuzzy WordList ($e): $!\n";
 		return undef;
 	
     }
-    
     return $fuzz[0];	# we ignore possible doublemetaphone
-	
 }
 
 sub Report
@@ -2512,10 +2509,13 @@ I find it very helpful.
 
 =head1 AUTHOR
 
-Peter Karman, karman@cray.com
+Peter Karman, karpet@peknet.com
 
-Thanks to the SWISH-E developers, in particular Bill Moseley for graciously
+Thanks to the Swish-edevelopers, in particular Bill Moseley for graciously
 sharing time, advice and code examples.
+
+Thanks to Cray for allowing this module to be publically released as part of
+CrayDoc and allowing me to continue supporting it.
 
 Comments and suggestions are welcome.
 
