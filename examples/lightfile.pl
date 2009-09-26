@@ -1,30 +1,32 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # A very simple example for highlighting a document from the filesystem.
 
+use strict;
+use warnings;
 use HTML::HiLiter;
 
-my $hiliter = new HTML::HiLiter;
-
-#$HTML::HiLiter::Debug=1;	# uncomment for oodles of debugging info
-
-my $file = shift || die "$0 file.html query\n";
+my $usage = "$0 file.html query\n";
 
 # you should do some error checks on $file for security and sanity
+my $file = shift or die $usage;
 
 # same with ARGV
-my @q = @ARGV;
+if ( !@ARGV ) {
+    die $usage;
+}
+my $query = join( ' ', @ARGV );
 
-$hiliter->Queries(\@q);
+my $hiliter = HTML::HiLiter->new(
 
-select(STDOUT);
+    #debug => 1, # uncomment for oodles of debugging info
+    query => $query,
+    tty   => 1,        # assuming you run from a terminal
+);
 
-$hiliter->CSS;
+$hiliter->run($file);
 
-$hiliter->Run($file);
-
-# if you wanted to know how accurate you were.
-warn $hiliter->Report;
+exit;
 
 __END__
 

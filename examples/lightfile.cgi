@@ -2,91 +2,96 @@
 #
 # usage: lighfile.cgi?f='somefile_or_url';q='some words to highlight'
 
+use strict;
+use warnings;
 use CGI qw(:standard);
 use CGI::Carp qw(fatalsToBrowser);
 use File::Spec;
+use HTML::HiLiter;
 
 print header();
 
-my $f = param('f');
-my (@q) = param('q');
-my $q = url_enc( join ' and ', @q );	# for tagfilter()
-my $docroot = '/your/document/root/here';	# prepend if local doc
-my $url = url();	# self-reference for tagfilter()
-my $burl = url(-base=>1);
+my $f       = param('f');
+my (@q)     = param('q');
+my $q       = url_enc( join ' and ', @q );    # for tagfilter()
+my $docroot = '/your/document/root/here';     # prepend if local doc
+my $url     = url();                          # self-reference for tagfilter()
+my $burl    = url( -base => 1 );
 my ($basedir) = ( $f =~ m!(.*)/! );
 
 $f = File::Spec->catfile( $docroot, $f ) unless $f =~ m!^http://!;
 
-use HTML::HiLiter;
+my $hl = HTML::HiLiter->new(
+    tag_filter => \&tagfilter,
+    query      => $q
+);
 
-my $hl = new HTML::HiLiter( TagFilter=>\&tagfilter );
-
-$hl->Queries([ @q ]);
-
-$hl->CSS;
-
-$hl->Run($f);
+$hl->run($f);
 
 #print "<p><pre>". $hl->Report . "</pre></p>";
 
-sub url_enc
-{
-# filters in place and also returns
+sub url_enc {
+
+    # filters in place and also returns
     $_[0] =~ s/([^a-zA-Z0-9_.%;&?\/\\:+=~-])/sprintf("%%%02X",ord($1))/oeg;
     return $_[0];
 
 }
 
-sub tagfilter
-{
+sub tagfilter {
 
     # alter tag attributes to preserve links and img src
-    my ($parserobj,$tag,$tagname,$offset,$length,$offset_end,$attr,$text) = @_;
-    
-    my ($newtext,$newtag,$newattr);
-    
+    my ( $parserobj, $tag, $tagname, $offset, $length, $offset_end, $attr,
+        $text )
+        = @_;
+
+    my ( $newtext, $newtag, $newattr );
+
     $newtext = $text;
-    
+
     return $newtext if $tag =~ m!^/!;
-    
-    $newtag = "<$tag";
+
+    $newtag  = "<$tag";
     $newattr = '';
-    
+
     if ( exists $attr->{href} ) {
-    
-    	if ( $attr->{href} =~ m!^$burl! ) {
-    	# external links should open in new window
-    		$attr->{target} = '_blank';
-    	}
-    
-    	unless ( $attr->{href} =~ m!^(/|#)! ) {
-    	# all other links should point back here
-    	# for recursive highlighting
-    		my $l = $attr->{href};
-    		#print "<!-- href: $l -->\n";
-    		#print "<!-- basedir: $basedir -->\n";
-    		$l = "$basedir/$l" unless $l =~ m!$basedir!;
-    		$attr->{href} = $tag =~ m!link!i
-                        ?  $l
-                        :  $url . "?q=$q;f=$l";
-    	}
-    
+
+        if ( $attr->{href} =~ m!^$burl! ) {
+
+            # external links should open in new window
+            $attr->{target} = '_blank';
+        }
+
+        unless ( $attr->{href} =~ m!^(/|#)! ) {
+
+            # all other links should point back here
+            # for recursive highlighting
+            my $l = $attr->{href};
+
+            #print "<!-- href: $l -->\n";
+            #print "<!-- basedir: $basedir -->\n";
+            $l = "$basedir/$l" unless $l =~ m!$basedir!;
+            $attr->{href}
+                = $tag =~ m!link!i
+                ? $l
+                : $url . "?q=$q;f=$l";
+        }
+
     }
-    
+
     if ( $tag eq 'img' ) {
-    
-    	unless ( $attr->{src} =~ m!^(http://|/)! ) {
-    	# if img is relative to file, make it absolute
-    		$attr->{src} = "$basedir/$attr->{src}";
-    
-    	}
-    
+
+        unless ( $attr->{src} =~ m!^(http://|/)! ) {
+
+            # if img is relative to file, make it absolute
+            $attr->{src} = "$basedir/$attr->{src}";
+
+        }
+
     }
-    
-    $newattr .= " $_='$attr->{$_}' " for keys %$attr; 	
-    		
-    
+
+    $newattr .= " $_='$attr->{$_}' " for keys %$attr;
+
     return $newtag . $newattr . '>';
 
 }

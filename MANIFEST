@@ -1,12 +1,18 @@
 Changes
-HiLiter.pm
+examples/lightfile.cgi
+examples/lightfile.pl
+lib/HTML/HiLiter.pm
 Makefile.PL
 MANIFEST
 README
-t/1.t
-t/test.html
-t/test.t
-t/test2.t
-META.yml                                Module meta-data (added by MakeMaker)
-examples/lightfile.pl
-examples/lightfile.cgi
+t/001.t
+t/002.t
+t/003.t
+t/004-encoding.t
+t/005-nohiliter.t
+t/docs/latin1.html
+t/docs/test.html
+t/docs/karman-cpan.html
+t/pod-coverage.t
+t/pod.t
+META.yml                                 Module meta-data (added by MakeMaker)
