@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               HTML-HiLiter
-version:            0.14
+version:            0.15
 abstract:           highlight words in an HTML document just like a felt-tip HiLiter
 author:
     - Peter Karman <karman@cpan.org>
@@ -8,13 +8,15 @@ license:            perl
 distribution_type:  module
 configure_requires:
     ExtUtils::MakeMaker:  0
+build_requires:
+    ExtUtils::MakeMaker:  0
 requires:
     Data::Dump:     0
     File::Slurp:    0
     HTML::Parser:   0
     perl:           5.008003
     Rose::Object:   0
-    Search::Tools:  0.26
+    Search::Tools:  0.33
     Test::More:     0
 resources:
     bugtracker:  http://rt.cpan.org/NoAuth/Bugs.html?Dist=HTML-HiLiter
@@ -25,7 +27,7 @@ no_index:
     directory:
         - t
         - inc
-generated_by:       ExtUtils::MakeMaker version 6.48
+generated_by:       ExtUtils::MakeMaker version 6.54
 meta-spec:
     url:      http://module-build.sourceforge.net/META-spec-v1.4.html
     version:  1.4

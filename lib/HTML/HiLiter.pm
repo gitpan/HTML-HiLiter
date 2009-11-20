@@ -20,7 +20,7 @@ $HTML::Tagset::isHeadElement{'html'}++;
 __PACKAGE__->mk_accessors(
     qw( hiliter query buffer_limit print_stream fh style_header ));
 
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 
 # some global debugging vars
 my $open_comment  = "\n<!--\n";
@@ -122,9 +122,17 @@ my %Defaults = (
 );
 
 sub init {
-    my $self = shift;
-    my %args = $self->_normalize_args(@_);
+    my $self    = shift;
+    my %args    = $self->_normalize_args(@_);
+    my %non_api = map { $_ => $args{$_} } grep { !$self->can($_) } keys %args;
+    delete $args{$_} for keys %non_api;
+
+    # special case for stemmer
+    if ( exists $non_api{stemmer} ) {
+        $args{stemmer} = delete $non_api{stemmer};
+    }
     $self->SUPER::init(%args);
+    $self->{$_} = $non_api{$_} for keys %non_api;
 
     # SWISH deprecated
     if ( exists $self->{SWISHE} or exists $self->{SWISH} ) {
@@ -192,7 +200,6 @@ sub _setup {
         text_color => $self->{text_color},
         query      => $self->{query},
         tty        => $self->{tty},
-        stemmer    => $self->{stemmer},
     );
 
     $self->{_terms_regex} = $self->{query}->terms_as_regex;
@@ -346,7 +353,7 @@ sub _flush_buffer {
         # is much faster, nytprof tells me.
         $hilited =~ s/\002//g;
         $hilited =~ s/\003//g;
-        
+
         if ( $self->{print_stream} ) {
             print { $self->{fh} } $hilited;
         }
