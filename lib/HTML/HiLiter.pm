@@ -20,7 +20,7 @@ $HTML::Tagset::isHeadElement{'html'}++;
 __PACKAGE__->mk_accessors(
     qw( hiliter query buffer_limit print_stream fh style_header ));
 
-our $VERSION = '0.15';
+our $VERSION = '0.16';
 
 # some global debugging vars
 my $open_comment  = "\n<!--\n";
@@ -200,6 +200,7 @@ sub _setup {
         text_color => $self->{text_color},
         query      => $self->{query},
         tty        => $self->{tty},
+        debug      => $self->{debug},
     );
 
     $self->{_terms_regex} = $self->{query}->terms_as_regex;
@@ -306,6 +307,9 @@ sub _handle_end_tag {
 sub _matches_any_term {
     my $self = shift;
     my $buf  = shift;
+
+    $self->debug and carp "check '$buf' against $self->{_terms_regex}";
+    
     return $buf =~ m/$self->{_terms_regex}/;
 }
 

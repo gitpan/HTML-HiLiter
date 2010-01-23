@@ -102,3 +102,6 @@ Revision history for Perl extension HiLiter.
     * fixed init() to only pass on args that are methods (was causing tests to fail with
       latest version of Rose::ObjectX::CAF).
 
+0.16  22 Jan 2009
+    * add tests for wildcard matches.
+
