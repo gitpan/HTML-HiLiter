@@ -105,3 +105,6 @@ Revision history for Perl extension HiLiter.
 0.16  22 Jan 2009
     * add tests for wildcard matches.
 
+0.17  13 July 2011
+    * bump dependency on Search::Tools to 0.60
+

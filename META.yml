@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               HTML-HiLiter
-version:            0.16
+version:            0.17
 abstract:           highlight words in an HTML document just like a felt-tip HiLiter
 author:
     - Peter Karman <karman@cpan.org>
@@ -16,7 +16,7 @@ requires:
     HTML::Parser:   0
     perl:           5.008003
     Rose::Object:   0
-    Search::Tools:  0.38
+    Search::Tools:  0.60
     Test::More:     0
 resources:
     bugtracker:  http://rt.cpan.org/NoAuth/Bugs.html?Dist=HTML-HiLiter
