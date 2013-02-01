@@ -20,7 +20,7 @@ $HTML::Tagset::isHeadElement{'html'}++;
 __PACKAGE__->mk_accessors(
     qw( hiliter query buffer_limit print_stream fh style_header ));
 
-our $VERSION = '0.17';
+our $VERSION = '0.18';
 
 # some global debugging vars
 my $open_comment  = "\n<!--\n";

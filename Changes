@@ -108,3 +108,5 @@ Revision history for Perl extension HiLiter.
 0.17  13 July 2011
     * bump dependency on Search::Tools to 0.60
 
+0.18  31 Jan 2013
+    * bump dependency on Search::Tools to 0.86, fix failing tests caused by newer S::T

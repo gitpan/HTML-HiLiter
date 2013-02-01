@@ -50,7 +50,7 @@ WriteMakefile(
     ABSTRACT_FROM => 'lib/HTML/HiLiter.pm',
     PL_FILES      => {},
     PREREQ_PM     => {
-        'Search::Tools' => '0.60',
+        'Search::Tools' => '0.86',
         'HTML::Parser'  => 0,
         'Test::More'    => 0,        # Search::Tools req too
         'File::Slurp'   => 0,        # Search::Tools req too

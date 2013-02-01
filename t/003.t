@@ -44,11 +44,11 @@ my $expected_hilited = <<EOF;
 <h1>THIS IS THE TITLE</h1>
 <div>
 <p
->The <b><i><span class="hilite">q</span></i></b><span class="hilite">uick brown</span> ( really!@#\$ ) <span class="hilite">fox</span> [<span class="hilite">foxy</span>, no doubt...]
+>The <b><i><span class='hilite'>q</span></i></b><span class='hilite'>uick brown</span> ( really!@#\$ ) <span class='hilite'>fox</span> [<span class='hilite'>foxy</span>, no doubt...]
 </p>
 <p>
-<span class=\"hilite\">jum</span><em><span class=\"hilite\">p</span></em><span class=\"hilite\">ed over</span>&nbsp;the to<strong>o</strong> lazy<br />
- dog. hey, running, <span class="hilite">runner</span>, ran
+<span class='hilite'>jum</span><em><span class='hilite'>p</span></em><span class='hilite'>ed over</span>&nbsp;the to<strong>o</strong> lazy<br />
+ dog. hey, running, <span class='hilite'>runner</span>, ran
 </p>
 </div>
 <div>
@@ -59,7 +59,7 @@ a second div with a fake entity called &fakefoxent;
 </div>
 <div>
 <p>
-a third div with a technical piece: <span class="hilite">C++&nbsp;filter</span> takes the &#8211;h&nbsp;option
+a third div with a technical piece: <span class='hilite'>C++&nbsp;filter</span> takes the &#8211;h&nbsp;option
 or the &#8212; long-dash option
 </p>
 </div>
