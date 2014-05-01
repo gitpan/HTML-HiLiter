@@ -4,7 +4,7 @@
       "Peter Karman <karman@cpan.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.120530",
+   "generated_by" : "ExtUtils::MakeMaker version 6.6302, CPAN::Meta::Converter version 2.140640",
    "license" : [
       "perl_5"
    ],
@@ -35,8 +35,8 @@
             "Data::Dump" : "0",
             "File::Slurp" : "0",
             "HTML::Parser" : "0",
-            "Rose::Object" : "0",
-            "Search::Tools" : "0.86",
+            "Moose" : "0",
+            "Search::Tools" : "1.000",
             "Test::More" : "0",
             "perl" : "5.008003"
          }
@@ -55,5 +55,5 @@
          "url" : "http://svn.peknet.com/perl/HTML-HiLiter"
       }
    },
-   "version" : "0.18"
+   "version" : "0.200"
 }

@@ -12,7 +12,7 @@ for my $str (qw( *mythyl* fancy )) {
             #tty          => 1,
             query        => $str,
             print_stream => 0,
-            fh           => *STDERR,
+            fh           => \*STDERR,
         ),
         "new hiliter"
     );
@@ -30,7 +30,7 @@ for my $str (qw( *mythyl mythyl* )) {
             #tty          => 1,
             query        => $str,
             print_stream => 0,
-            fh           => *STDERR,
+            fh           => \*STDERR,
         ),
         "new hiliter"
     );

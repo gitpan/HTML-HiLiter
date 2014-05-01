@@ -12,7 +12,7 @@ print STDERR<<"EOF";
 ## the HTML::HiLiter documentation. If you use HTML::HiLiter in
 ## existing code, **you will need to change your code**.
 ##
-## Press return to continue (or wait 60 seconds)
+## Press return to continue (or wait 20 seconds)
 EOF
 
 unless ( $ENV{'AUTOMATED_TESTING'} ) {
@@ -24,7 +24,7 @@ unless ( $ENV{'AUTOMATED_TESTING'} ) {
 
         # Localize so I only have to restore in my catch block
         local $SIG{'ALRM'} = sub { die 'alarm' };
-        alarm(60);
+        alarm(20);
         my $res = <STDIN>;
         alarm(0);
     };
@@ -50,12 +50,12 @@ WriteMakefile(
     ABSTRACT_FROM => 'lib/HTML/HiLiter.pm',
     PL_FILES      => {},
     PREREQ_PM     => {
-        'Search::Tools' => '0.86',
+        'Moose'         => 0,
+        'Search::Tools' => '1.000',
         'HTML::Parser'  => 0,
         'Test::More'    => 0,        # Search::Tools req too
         'File::Slurp'   => 0,        # Search::Tools req too
         'Data::Dump'    => 0,        # Search::Tools req too
-        'Rose::Object'  => 0,        # Search::Tools req too
 
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },

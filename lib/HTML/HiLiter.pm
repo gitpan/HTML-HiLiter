@@ -1,8 +1,7 @@
 package HTML::HiLiter;
-use strict;
-use warnings;
+use Moose;
 use 5.008003;    # Search::Tools requires this
-use base qw( Search::Tools::Object );
+with 'Search::Tools::ArgNormalizer';
 use Carp;
 use Search::Tools::QueryParser;
 use Search::Tools::HiLiter;
@@ -17,10 +16,36 @@ use HTML::Tagset;
 $HTML::Tagset::isHeadElement{'head'}++;
 $HTML::Tagset::isHeadElement{'html'}++;
 
-__PACKAGE__->mk_accessors(
-    qw( hiliter query buffer_limit print_stream fh style_header ));
+sub _init_debug { return $ENV{PERL_DEBUG} || 0 }
 
-our $VERSION = '0.18';
+has 'debug' => (
+    is      => 'rw',
+    isa     => 'Maybe[Int]',
+    lazy    => 1,
+    builder => '_init_debug',
+);
+has 'hiliter' => (
+    is      => 'rw',
+    isa     => 'Search::Tools::HiLiter',
+    lazy    => 1,
+    builder => '_init_hiliter',
+);
+has 'query' => (
+    is  => 'rw',
+    isa => 'Search::Tools::Query',
+);
+has 'buffer_limit' => ( is => 'rw', isa => 'Int',  default => sub { 2**16 } );
+has 'print_stream' => ( is => 'rw', isa => 'Bool', default => sub {1} );
+has 'fh' => ( is => 'rw', isa => 'FileHandle', default => sub { \*STDOUT } );
+has 'style_header' => ( is => 'rw', isa => 'Maybe[Str]', );
+
+# Search::Tools::HiLilter attributes we want to proxy through
+has 'tag' => ( is => 'rw', isa => 'Str', default => sub {'span'} );
+for my $attr (qw( class style colors text_color tty )) {
+    has $attr => ( is => 'rw' );
+}
+
+our $VERSION = '0.200';
 
 # some global debugging vars
 my $open_comment  = "\n<!--\n";
@@ -113,35 +138,16 @@ my $close_comment = "\n-->\n";
 
 ################################################################################
 
-my %Defaults = (
-    tag          => 'span',
-    class        => undef,
-    print_stream => 1,
-    buffer_limit => 2**16,
-    fh           => *STDOUT,
-);
+sub BUILD {
+    my $self = shift;
 
-sub init {
-    my $self    = shift;
-    my %args    = $self->_normalize_args(@_);
-    my %non_api = map { $_ => $args{$_} } grep { !$self->can($_) } keys %args;
-    delete $args{$_} for keys %non_api;
+    $self->{debug} ||= 0;
 
-    # special case for stemmer
-    if ( exists $non_api{stemmer} ) {
-        $args{stemmer} = delete $non_api{stemmer};
-    }
-    $self->SUPER::init(%args);
-    $self->{$_} = $non_api{$_} for keys %non_api;
-
-    # SWISH deprecated
-    if ( exists $self->{SWISHE} or exists $self->{SWISH} ) {
-        croak
-            "SWISHE/SWISH feature is no longer supported. See SWISH::HiLiter.";
-    }
-
+    #dump $self;
     $self->_setup_back_compat();
     $self->_setup();
+
+    #dump $self;
 
     return $self;
 }
@@ -181,29 +187,26 @@ sub _setup_back_compat {
 sub _setup {
     my $self = shift;
 
-    for my $param ( keys %Defaults ) {
-        if ( !exists $self->{$param} ) {
-            $self->{$param} = $Defaults{$param};
-        }
-    }
-
     if ( exists $self->{parser} && $self->{parser} == 0 ) {
         croak
             "use Search::Tools::HiLiter directly instead of HTML::HiLiter without a parser";
     }
 
-    $self->{hiliter} ||= Search::Tools::HiLiter->new(
-        tag        => $self->{tag},
-        class      => $self->{class},
-        colors     => $self->{colors},
-        style      => $self->{style},
-        text_color => $self->{text_color},
-        query      => $self->{query},
-        tty        => $self->{tty},
-        debug      => $self->{debug},
-    );
-
     $self->{_terms_regex} = $self->{query}->terms_as_regex;
+}
+
+sub _init_hiliter {
+    my $self = shift;
+    return Search::Tools::HiLiter->new(
+        tag        => $self->tag,
+        class      => $self->class,
+        colors     => $self->colors,
+        style      => $self->style,
+        text_color => $self->text_color,
+        query      => $self->query,
+        tty        => $self->tty,
+        debug      => $self->debug,
+    );
 }
 
 sub _handle_tag {
@@ -216,7 +219,7 @@ sub _handle_tag {
     # $tag has ! for declarations and / for endtags
     # $tagname is just bare tagname
 
-    if ( $self->{debug} >= 3 ) {
+    if ( $self->debug >= 3 ) {
         print { $self->{fh} } $open_comment;
         print { $self->{fh} } "\n" . '=' x 20 . "\n";
         print { $self->{fh} } "Tag          :$tag:\n";
@@ -235,7 +238,7 @@ sub _handle_tag {
     # this prevents us from hiliting a <title> for example.
     if ( !$self->{_is_hiliting} ) {
         if ( !exists $HTML::Tagset::isHeadElement{$tagname} ) {
-            $self->{debug} and carp "turning is_hiliting on for <$tag>";
+            $self->debug and carp "turning is_hiliting on for <$tag>";
             $self->{_is_hiliting} = 1;
         }
         else {
@@ -309,7 +312,7 @@ sub _matches_any_term {
     my $buf  = shift;
 
     $self->debug and carp "check '$buf' against $self->{_terms_regex}";
-    
+
     return $buf =~ m/$self->{_terms_regex}/;
 }
 
@@ -341,7 +344,7 @@ sub _flush_buffer {
         # otherwise, call the hiliter on $buffer
         # this is the main event
 
-        $self->{debug} and carp "flushing buffer";
+        $self->debug and carp "flushing buffer";
 
         my $hilited;
 
@@ -400,7 +403,7 @@ sub _handle_start_tag {
             : $text;
 
         warn "$open_comment adding :$reassemble: to buffer $close_comment"
-            if $self->{debug} >= 3;
+            if $self->debug >= 3;
 
         # add to the buffer for later evaluation as a potential match
         $self->{_buffer} .= $reassemble;
@@ -493,7 +496,7 @@ sub _handle_text {
         $self->{_buffer} .= $filtered;
     }
 
-    if ( $self->{debug} >= 3 ) {
+    if ( $self->debug >= 3 ) {
         print { $self->{fh} } $open_comment
             . "text         :$text:\n"
             . "filtered     :$filtered:\n";
@@ -514,7 +517,7 @@ sub _check_count {
     my $done;
     for ( sort keys %{ $_[0] } ) {
         $done += $_[0]->{$_};
-        if ( $self->{debug} >= 1 and $_[0]->{$_} > 0 ) {
+        if ( $self->debug >= 1 and $_[0]->{$_} > 0 ) {
             print { $self->{fh} }
                 "$open_comment $_[0]->{$_} remaining to hilite for: $_ $close_comment";
         }
@@ -618,7 +621,7 @@ sub apply_hiliting {
     if ( !defined $str ) {
         croak "string required";
     }
-    return $self->{hiliter}->light($str);
+    return $self->hiliter->light($str);
 }
 
 sub _get_url {
@@ -822,7 +825,7 @@ NOTE: Set this to 0 (B<false>) only if you are highlighting small chunks of HTML
 
 =back
 
-=head2 init
+=head2 BUILD 
 
 Called internally by new().
 
