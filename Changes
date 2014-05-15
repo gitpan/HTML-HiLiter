@@ -1,5 +1,8 @@
 Revision history for Perl extension HiLiter.
 
+0.201 15 May 2014
+ - remove File::Slurp dependency since Search::Tools->slurp exists
+
 0.200 1 May 2014
  - port to Moose for Search::Tools 1.000
 

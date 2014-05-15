@@ -1,7 +1,6 @@
 use strict;
 use Test::More tests => 3;
 use HTML::HiLiter;
-use File::Slurp;
 
 my $file = 't/docs/test.html';
 
@@ -26,6 +25,6 @@ ok( my $hiliter = HTML::HiLiter->new(
     "new HiLiter"
 );
 
-ok( my $hilited = $hiliter->run( scalar \read_file($file) ) );
+ok( my $hilited = $hiliter->run( \Search::Tools->slurp($file) ) );
 
 ok( $hilited->isa("HTML::Parser"), "hiliter matches" );

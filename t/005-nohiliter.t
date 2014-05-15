@@ -2,10 +2,9 @@ use strict;
 use Test::More tests => 3;
 use HTML::HiLiter;
 use Data::Dump qw( dump );
-use File::Slurp;
 
 my $file = 't/docs/test.html';
-my $buf  = read_file($file);
+my $buf  = Search::Tools->slurp($file);
 $buf =~ s,(\QC++&nbsp;filter\E),<span nohiliter="1">$1</span>,;
 
 my @q = (

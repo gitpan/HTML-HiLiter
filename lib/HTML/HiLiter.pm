@@ -7,7 +7,6 @@ use Search::Tools::QueryParser;
 use Search::Tools::HiLiter;
 use Search::Tools::UTF8;
 use Data::Dump qw( dump );
-use File::Slurp;
 use HTML::Parser;
 use HTML::Tagset;
 
@@ -45,7 +44,7 @@ for my $attr (qw( class style colors text_color tty )) {
     has $attr => ( is => 'rw' );
 }
 
-our $VERSION = '0.200';
+our $VERSION = '0.201';
 
 # some global debugging vars
 my $open_comment  = "\n<!--\n";
@@ -585,7 +584,7 @@ sub run {
 
     my $return;
     if ( !ref($string) && -e $string ) {
-        $return = $parser->parse( to_utf8( scalar read_file($string) ) );
+        $return = $parser->parse( to_utf8( Search::Tools->slurp($string) ) );
     }
     elsif ( $string =~ m/^https?:\/\//i ) {
         $return = $parser->parse( to_utf8( $self->_get_url($string) ) );

@@ -33,7 +33,6 @@
       "runtime" : {
          "requires" : {
             "Data::Dump" : "0",
-            "File::Slurp" : "0",
             "HTML::Parser" : "0",
             "Moose" : "0",
             "Search::Tools" : "1.000",
@@ -47,13 +46,13 @@
       "bugtracker" : {
          "web" : "http://rt.cpan.org/NoAuth/Bugs.html?Dist=HTML-HiLiter"
       },
-      "homepage" : "http://perl.peknet.com/wiki/HTMLHiLiter",
+      "homepage" : "https://github.com/karpet/html-hiliter",
       "license" : [
          "http://dev.perl.org/licenses/"
       ],
       "repository" : {
-         "url" : "http://svn.peknet.com/perl/HTML-HiLiter"
+         "url" : "https://github.com/karpet/html-hiliter"
       }
    },
-   "version" : "0.200"
+   "version" : "0.201"
 }
